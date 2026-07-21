@@ -2,6 +2,7 @@ import { loadConfig } from "./config.js";
 import { RelayHubApi } from "./api.js";
 import { createModem } from "./modem.js";
 import { redactPhone } from "./redact.js";
+import { isPreparedGatewayUpdate, prepareGatewayUpdate, scheduleGatewayUpdate } from "./updater.js";
 
 const config = loadConfig();
 
@@ -113,11 +114,24 @@ async function processCommands() {
     });
     try {
       const result = await executeCommand(command.command_type);
-      await api.completeCommand(command.id, "completed", result);
+      const reportedResult = isPreparedGatewayUpdate(result)
+        ? {
+            update: "prepared",
+            fromVersion: config.softwareVersion,
+            version: result.version
+          }
+        : result;
+      await api.completeCommand(command.id, "completed", reportedResult);
       log("info", "gateway_command_completed", `Completed command ${command.command_type}`, {
         commandId: command.id,
         commandType: command.command_type
       });
+      if (isPreparedGatewayUpdate(result)) {
+        await flushLogs();
+        await scheduleGatewayUpdate(result);
+        setTimeout(() => process.exit(0), 500);
+        return;
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await api.completeCommand(command.id, "failed", { error: message });
@@ -140,6 +154,8 @@ async function executeCommand(commandType: string) {
       await flushLogs();
       setTimeout(() => process.exit(0), 100);
       return { restart: "scheduled", completedAt: new Date().toISOString() };
+    case "update_service":
+      return prepareGatewayUpdate(config);
     default:
       throw new Error(`Unsupported gateway command ${commandType}`);
   }
@@ -358,6 +374,7 @@ async function recordModemFailure(eventType: string, error: unknown) {
 async function main() {
   log("info", "gateway_started", "RelayHub gateway service started", {
     hubUrl: config.hubUrl,
+    softwareVersion: config.softwareVersion,
     modemMode: config.modemMode,
     serialDevice: config.serialDevice,
     serialBaudRate: config.serialBaudRate,

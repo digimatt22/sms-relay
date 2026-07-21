@@ -833,6 +833,9 @@ export async function requestGatewayCommandAction(formData: FormData) {
   const gatewayId = String(formData.get("gatewayId") || "");
   const commandType = String(formData.get("commandType") || "");
   if (!gatewayId || !commandType) redirect("/gateways");
+  if (!["diagnostics", "reset_modem", "restart_service", "update_service"].includes(commandType)) {
+    redirect(`/gateways/${gatewayId}`);
+  }
   const { session } = await requireGatewayActionAccess(gatewayId, "operator");
 
   await requestGatewayCommand({

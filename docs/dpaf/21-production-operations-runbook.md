@@ -109,6 +109,7 @@ Supported commands:
 - `diagnostics`: reports gateway configuration, signal quality, buffered logs, and modem failure counters
 - `reset_modem`: runs the configured modem hard reset recovery path
 - `restart_service`: reports completion, then exits so systemd restarts the service
+- `update_service`: downloads and stages the latest published gateway package, preserves `/etc/relayhub/gateway.env`, atomically swaps `/opt/relayhub-gateway`, and restarts the service
 
 Gateway command API endpoints:
 

@@ -22,7 +22,7 @@ export default async function GatewaysPage() {
   const organizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
   const canAdminGateways = hasRole(session, "org_admin");
   const gateways = await query(
-    `SELECT g.id, g.name, g.status, g.last_heartbeat_at, g.hardware_type, g.carrier,
+    `SELECT g.id, g.name, g.status, g.last_heartbeat_at, g.hardware_type, g.software_version, g.carrier,
             g.api_key_prefix, g.visibility,
             CASE
               WHEN $2::boolean = true THEN 'manage'
@@ -134,6 +134,7 @@ export default async function GatewaysPage() {
               <th>Heartbeat</th>
               <th>Signal</th>
               <th>Hardware</th>
+              <th>Version</th>
               <th>Key</th>
             </tr>
           </thead>
@@ -161,10 +162,11 @@ export default async function GatewaysPage() {
                   </div>
                 </td>
                 <td>{gatewayHardwareLabel(gateway.hardware_type)}</td>
+                <td>{gateway.software_version || "Unknown"}</td>
                 <td>{hasGatewayAccessLevel(gateway.access_level, "manage") ? `${gateway.api_key_prefix}...` : "Shared"}</td>
               </tr>
             ))}
-            {!gateways.rows.length ? <tr><td colSpan={6}>No gateways yet.</td></tr> : null}
+            {!gateways.rows.length ? <tr><td colSpan={7}>No gateways yet.</td></tr> : null}
           </tbody>
         </table>
         <div className="mobile-only mobile-card-list">
@@ -173,7 +175,7 @@ export default async function GatewaysPage() {
               <div className="mobile-card-main">
                 <div>
                   <div className="mobile-card-title">{gateway.name}</div>
-                  <div className="mobile-card-body">{gatewayHardwareLabel(gateway.hardware_type)} · {gatewayCarrierLabel(gateway.carrier)}</div>
+                  <div className="mobile-card-body">{gatewayHardwareLabel(gateway.hardware_type)} · {gatewayCarrierLabel(gateway.carrier)} · v{gateway.software_version || "unknown"}</div>
                 </div>
                 <span className={`status ${gatewayStatusClass(effectiveGatewayStatus(gateway))}`}>
                   {gatewayStatusLabel(effectiveGatewayStatus(gateway))}

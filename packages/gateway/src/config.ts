@@ -3,6 +3,10 @@ import { readFileSync, existsSync } from "node:fs";
 export type GatewayConfig = {
   hubUrl: string;
   apiKey: string;
+  softwareVersion: string;
+  packageUrl: string;
+  installDir: string;
+  serviceName: string;
   apn?: string;
   carrier?: string;
   modemMode: "mock" | "sim7070";
@@ -25,10 +29,15 @@ export function loadConfig(): GatewayConfig {
   const configPath = process.env.RELAYHUB_CONFIG || "/etc/relayhub/gateway.env";
   const fileValues = existsSync(configPath) ? parseEnv(readFileSync(configPath, "utf8")) : {};
   const value = (key: string, fallback = "") => process.env[key] || fileValues[key] || fallback;
+  const hubUrl = value("RELAYHUB_HUB_URL", "https://sns.digicolony.net").replace(/\/$/, "");
 
   return {
-    hubUrl: value("RELAYHUB_HUB_URL", "https://sns.digicolony.net").replace(/\/$/, ""),
+    hubUrl,
     apiKey: value("RELAYHUB_GATEWAY_KEY"),
+    softwareVersion: packageVersion(),
+    packageUrl: value("RELAYHUB_GATEWAY_PACKAGE_URL", `${hubUrl}/gateway.tar.gz`),
+    installDir: value("RELAYHUB_INSTALL_DIR", "/opt/relayhub-gateway"),
+    serviceName: value("RELAYHUB_SERVICE_NAME", "relayhub-gateway"),
     apn: value("RELAYHUB_APN"),
     carrier: value("RELAYHUB_CARRIER"),
     modemMode: value("RELAYHUB_MODEM_MODE", "mock") === "sim7070" ? "sim7070" : "mock",
@@ -46,6 +55,15 @@ export function loadConfig(): GatewayConfig {
     modemTrace: booleanValue(value("RELAYHUB_MODEM_TRACE", "false")),
     logLevel: value("RELAYHUB_LOG_LEVEL", "info") as GatewayConfig["logLevel"]
   };
+}
+
+function packageVersion() {
+  try {
+    const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    return typeof packageJson.version === "string" ? packageJson.version : "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 function optionalNumber(value: string) {

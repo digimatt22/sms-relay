@@ -15,7 +15,7 @@ export class RelayHubApi {
   async heartbeat(metrics: Json = {}) {
     return this.post("/api/gateway/heartbeat", {
       status: "online",
-      softwareVersion: "0.1.0",
+      softwareVersion: this.config.softwareVersion,
       hardwareType: "RelayHub Edge One",
       carrier: this.config.carrier,
       apnProfile: this.config.apn,

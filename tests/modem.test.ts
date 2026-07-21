@@ -15,6 +15,10 @@ function config(): GatewayConfig {
   return {
     hubUrl: "http://localhost:3000",
     apiKey: "test",
+    softwareVersion: "test",
+    packageUrl: "https://sns.digicolony.net/gateway.tar.gz",
+    installDir: "/opt/relayhub-gateway",
+    serviceName: "relayhub-gateway",
     apn: "wholesale",
     carrier: "Tello",
     modemMode: "sim7070",

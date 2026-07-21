@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Activity, Power, RadioTower, RotateCcw, Save, Wrench } from "lucide-react";
+import { Activity, Download, Power, RadioTower, RotateCcw, Save, Wrench } from "lucide-react";
 import { requireAdminPage } from "@/lib/page-auth";
 import { query } from "@/lib/db";
 import { humanize } from "@/lib/format";
@@ -64,6 +64,11 @@ export default async function GatewayDetailPage({
             <>
               <form action={requestGatewayCommandAction}>
                 <input type="hidden" name="gatewayId" value={gateway.rows[0].id} />
+                <input type="hidden" name="commandType" value="update_service" />
+                <button className="secondary-button" type="submit"><Download size={16} />Update gateway</button>
+              </form>
+              <form action={requestGatewayCommandAction}>
+                <input type="hidden" name="gatewayId" value={gateway.rows[0].id} />
                 <input type="hidden" name="commandType" value="restart_service" />
                 <button className="secondary-button" type="submit"><RotateCcw size={16} />Restart service</button>
               </form>
@@ -94,6 +99,7 @@ export default async function GatewayDetailPage({
           <h2>Hardware Status</h2>
           <dl>
             <dt>Hardware</dt><dd>{gatewayHardwareLabel(gateway.rows[0].hardware_type)}</dd>
+            <dt>Software</dt><dd>{gateway.rows[0].software_version || "Unknown"}</dd>
             <dt>Carrier</dt><dd>{gatewayCarrierLabel(gateway.rows[0].carrier)}</dd>
             <dt>Serial Device</dt><dd>{health.rows[0]?.metrics?.serialDevice || "/dev/serial0"}</dd>
             <dt>Baud Rate</dt><dd>{health.rows[0]?.metrics?.serialBaudRate || "115200"}</dd>
@@ -142,7 +148,8 @@ export default async function GatewayDetailPage({
             {[
               ["diagnostics", "Diagnostics"],
               ["reset_modem", "Reset modem"],
-              ["restart_service", "Restart service"]
+              ["restart_service", "Restart service"],
+              ["update_service", "Update gateway"]
             ].map(([commandType, label]) => (
               <form key={commandType} action={requestGatewayCommandAction}>
                 <input type="hidden" name="gatewayId" value={gateway.rows[0].id} />

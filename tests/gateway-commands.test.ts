@@ -13,14 +13,21 @@ test("hub exposes gateway command claim and completion endpoints", () => {
   assert.match(gateways, /status = 'claimed'/);
 });
 
-test("gateway appliance executes diagnostics, reset, and restart commands", () => {
+test("gateway appliance executes diagnostics, reset, restart, and update commands", () => {
   const api = readFileSync("packages/gateway/src/api.ts", "utf8");
   const index = readFileSync("packages/gateway/src/index.ts", "utf8");
+  const updater = readFileSync("packages/gateway/src/updater.ts", "utf8");
+  const detailPage = readFileSync("src/app/gateways/[id]/page.tsx", "utf8");
 
   assert.match(api, /claimCommands/);
   assert.match(api, /completeCommand/);
   assert.match(index, /case "diagnostics"/);
   assert.match(index, /case "reset_modem"/);
   assert.match(index, /case "restart_service"/);
+  assert.match(index, /case "update_service"/);
+  assert.match(updater, /gateway\.tar\.gz/);
+  assert.match(updater, /systemctl/);
+  assert.match(updater, /previous/);
+  assert.match(detailPage, /Update gateway/);
   assert.match(index, /processCommands/);
 });
