@@ -2,9 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { UserPlus } from "lucide-react";
 import { createUserInvitationAction } from "@/app/actions";
-import { query } from "@/lib/db";
 import { getCurrentOrganizationId, listOrganizationsForUser } from "@/lib/organizations";
 import { requireRolePage } from "@/lib/page-auth";
+import { normalizeRole } from "@/lib/rbac";
 
 export default async function InviteClientUserPage({
   params,
@@ -18,17 +18,18 @@ export default async function InviteClientUserPage({
   const sp = await searchParams;
   const currentOrganizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
   const allowedOrganizations = await listOrganizationsForUser(session.user.id, session.user.role);
-  if (!allowedOrganizations.some((organization: any) => organization.id === id)) notFound();
-  const client = await query("SELECT id, name FROM organizations WHERE id = $1", [id]);
-  if (!client.rows[0]) notFound();
+  const platformAdmin = normalizeRole(session.user.role) === "platform_admin";
+  const selectedOrganizationId = platformAdmin ? id : currentOrganizationId;
+  const selectedClient = allowedOrganizations.find((organization: any) => organization.id === selectedOrganizationId);
+  if (!selectedClient) notFound();
 
   return (
     <>
       <header className="page-header">
         <div>
-          <p className="muted"><Link href="/organizations">Back to Clients</Link></p>
+          <p className="muted"><Link href="/organizations">Back to {platformAdmin ? "Clients" : "Users"}</Link></p>
           <h1>Invite User</h1>
-          <p>Add a dashboard user to {client.rows[0].name}.</p>
+          <p>{platformAdmin ? "Add a dashboard user to a client account." : `Add a dashboard user to ${selectedClient.name}.`}</p>
         </div>
       </header>
 
@@ -42,11 +43,21 @@ export default async function InviteClientUserPage({
 
       <section className="panel">
         <form className="form" action={createUserInvitationAction}>
-          <input type="hidden" name="organizationId" value={id} />
-          <input type="hidden" name="returnTo" value={`/organizations/${id}/invite`} />
+          <input type="hidden" name="returnTo" value={platformAdmin ? "/organizations" : `/organizations/${selectedOrganizationId}/invite`} />
           <div className="field">
-            <label>Client</label>
-            <input value={client.rows[0].name} readOnly />
+            <label htmlFor="organizationId">Client</label>
+            {platformAdmin ? (
+              <select id="organizationId" name="organizationId" defaultValue={selectedOrganizationId} required>
+                {allowedOrganizations.map((organization: any) => (
+                  <option key={organization.id} value={organization.id}>{organization.name}</option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <input id="organizationId" value={selectedClient.name} readOnly />
+                <input type="hidden" name="organizationId" value={selectedOrganizationId} />
+              </>
+            )}
           </div>
           <div className="field">
             <label htmlFor="userEmail">Email</label>

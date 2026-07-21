@@ -17,6 +17,11 @@ test("organizations page supports invitations and membership role editing", () =
   assert.match(page, /removeOrganizationMembershipAction/);
   assert.match(invitePage, /createUserInvitationAction/);
   assert.match(invitePage, /listOrganizationsForUser/);
+  assert.match(invitePage, /<label htmlFor="organizationId">Client<\/label>/);
+  assert.match(invitePage, /platformAdmin \? \(/);
+  assert.match(invitePage, /<select id="organizationId" name="organizationId"/);
+  assert.match(invitePage, /value=\{selectedClient\.name\} readOnly/);
+  assert.match(invitePage, /value=\{selectedOrganizationId\}/);
   assert.match(actions, /acceptUserInvitationAction/);
   assert.match(actions, /upsertOrganizationMembership/);
   assert.match(organizations, /createUserInvitation/);

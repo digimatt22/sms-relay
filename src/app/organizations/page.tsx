@@ -83,7 +83,7 @@ export default async function ClientsAdminPage({
         <MetricCard label={platformAdmin ? "Clients" : "Users"} value={platformAdmin ? clients.length : memberships.rows.length} note={platformAdmin ? "Tenant accounts" : `${planUsage?.users || 0} / ${account.plan.includedUsers} included`} />
         <MetricCard label="Pending invites" value={invitations.length} note="Awaiting acceptance" />
         <MetricCard label="API apps" value={stats.rows.reduce((sum: number, row: any) => sum + row.api_app_count, 0)} note="Across visible clients" />
-        <MetricCard label="Plan" value={account.plan.name} note={account.plan.displayPrice} />
+        {platformAdmin ? <MetricCard label="Plan" value={account.plan.name} note={account.plan.displayPrice} /> : null}
       </section>
 
       {sp.inviteToken ? (

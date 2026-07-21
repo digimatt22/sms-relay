@@ -2,10 +2,10 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { getAccountContext } from "@/lib/account-context";
 import { getOrganizationPlanUsage } from "@/lib/plans";
-import { requireAdminPage } from "@/lib/page-auth";
+import { requireRolePage } from "@/lib/page-auth";
 
 export default async function AccountPlanPage() {
-  const session = await requireAdminPage();
+  const session = await requireRolePage("platform_admin");
   const account = await getAccountContext(session);
   const usage = await getOrganizationPlanUsage(account.organizationId);
 

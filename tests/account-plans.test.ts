@@ -41,6 +41,9 @@ test("account context and plan capacity helpers back account-scoped UX", () => {
   assert.match(plans, /Monthly message limit exceeded/);
   assert.match(layout, /label: isPlatformAdmin \? "Clients" : "Account"/);
   assert.match(layout, /label: isPlatformAdmin \? "Clients" : "Users"/);
+  assert.match(layout, /isPlatformAdmin \? \[\{ href: "\/account\/plan", label: "Plan & Billing"/);
+  const accountPlanPage = readFileSync("src/app/account/plan/page.tsx", "utf8");
+  assert.match(accountPlanPage, /requireRolePage\("platform_admin"\)/);
 });
 
 test("gateway visibility separates status from details and management", () => {
