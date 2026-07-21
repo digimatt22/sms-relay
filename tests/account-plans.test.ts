@@ -59,6 +59,20 @@ test("gateway visibility separates status from details and management", () => {
   assert.match(logs, /access_level IN \('details', 'manage'\)/);
 });
 
+test("account topology and API key UI use active account context and clear labels", () => {
+  const gatewayList = readFileSync("src/app/gateways/page.tsx", "utf8");
+  const clients = readFileSync("src/app/clients/page.tsx", "utf8");
+  const layout = readFileSync("src/app/layout.tsx", "utf8");
+
+  assert.match(gatewayList, /\{account\.organizationName\}/);
+  assert.doesNotMatch(gatewayList, /M\.A\.T\.T\./);
+  assert.match(layout, /label: "API Keys"/);
+  assert.match(clients, /<h1>API Keys<\/h1>/);
+  assert.match(clients, /<label htmlFor="name">App Name<\/label>/);
+  assert.match(clients, /<label htmlFor="keyLabel">Key Name<\/label>/);
+  assert.match(clients, /This is not the secret key/);
+});
+
 test("plan and pricing user interfaces are hidden", () => {
   assert.equal(existsSync("src/app/account/plan/page.tsx"), false);
   assert.equal(existsSync("src/app/pricing/page.tsx"), false);

@@ -61,7 +61,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       label: isPlatformAdmin ? "Clients" : "Account",
       items: [
         { href: "/organizations", label: isPlatformAdmin ? "Clients" : "Users", icon: Building2 },
-        { href: "/clients", label: "API Apps & Keys", icon: KeyRound },
+        { href: "/clients", label: "API Keys", icon: KeyRound },
         { href: "/usage", label: "Usage", icon: Gauge }
       ]
     }

@@ -782,6 +782,14 @@ button.primary:hover {
   font-weight: 700;
 }
 
+.field-help {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: -2px;
+}
+
 input,
 textarea,
 select {

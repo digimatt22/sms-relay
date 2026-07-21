@@ -106,8 +106,8 @@ export default async function GatewaysPage() {
         </div>
         <div className="topology-canvas" style={{ marginBottom: 18 }}>
           <div className="topology-node">
-            <div className="topology-label">Clients</div>
-            <strong>M.A.T.T.</strong>
+            <div className="topology-label">Client account</div>
+            <strong>{account.organizationName}</strong>
             <div className="object-meta">Dashboard/API sources</div>
           </div>
           <div className="topology-node">

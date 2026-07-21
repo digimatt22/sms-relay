@@ -73,7 +73,7 @@ export default async function ApiDocsPage() {
           <h2>Start Here</h2>
           <ol>
             <li>Create a client in <strong>Clients</strong>.</li>
-            <li>Create an API app under <strong>API Apps & Keys</strong>.</li>
+            <li>Create an API key under <strong>API Keys</strong>.</li>
             <li>Name the key for where it is used, such as Production CRM or Staging.</li>
             <li>Send requests with <code>Authorization: Bearer rhc_...</code>.</li>
             <li>Use an <code>idempotencyKey</code> for every logical message.</li>

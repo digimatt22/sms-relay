@@ -29,21 +29,21 @@ export default async function ClientsPage({
     <>
       <header className="page-header">
         <div>
-          <h1>API Apps & Keys</h1>
-          <p>Apps and integrations that can submit SMS through this client account.</p>
+          <h1>API Keys</h1>
+          <p>Create and manage API keys for applications that submit SMS through this client account.</p>
         </div>
         <div className="actions-row">
           <label className="field" style={{ display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
             <Search size={16} />
-            <input aria-label="Search API apps" placeholder="Search API apps..." style={{ width: 260 }} />
+            <input aria-label="Search API keys" placeholder="Search API keys..." style={{ width: 260 }} />
           </label>
-          {canAdminClients ? <a className="button" href="#new-client"><Plus size={16} />New API app</a> : null}
+          {canAdminClients ? <a className="button" href="#new-client"><Plus size={16} />New API key</a> : null}
         </div>
       </header>
 
       {params.apiKey ? (
         <section className="panel" style={{ marginBottom: 16 }}>
-          <h2>One-time client API key</h2>
+          <h2>One-time API key</h2>
           <p className="muted">Store this now. It will not be shown again.</p>
           <pre>{params.apiKey}</pre>
         </section>
@@ -56,7 +56,7 @@ export default async function ClientsPage({
       ) : null}
 
       <section className="metric-grid">
-        <MetricCard label="API Apps" value={clients.length} note="2 this month" />
+        <MetricCard label="Applications" value={clients.length} note="2 this month" />
         <MetricCard label="Messages (24h)" value={totalMessages24h} note="18% vs yesterday" />
         <MetricCard label="Delivery Rate (24h)" value={`${deliveryRate}%`} note={`${problemMessages} failed/problem`} />
         <MetricCard label="Active API Keys" value={activeKeys} note="1 this week" />
@@ -64,7 +64,7 @@ export default async function ClientsPage({
 
       <section className="panel" style={{ marginTop: 16 }}>
         <div className="client-row-grid header data-row">
-          <span>Client</span>
+          <span>App</span>
           <span>Usage (24h)</span>
           <span>Delivery Rate</span>
           <span>API Keys</span>
@@ -96,13 +96,13 @@ export default async function ClientsPage({
               <Link aria-label={`Open ${client.name}`} href={`/clients/${client.id}`}><MoreVertical size={18} /></Link>
             </div>
           ))}
-          {!clients.length ? <div className="data-row">No API clients yet.</div> : null}
+          {!clients.length ? <div className="data-row">No API keys yet. Create one to connect an application.</div> : null}
         </div>
       </section>
 
       <div className="grid" style={{ marginTop: 16 }}>
         <section className="panel">
-          <h2>Top API Apps by Volume (24h)</h2>
+          <h2>Top Applications by Volume (24h)</h2>
           <div className="object-list">
             {usage.slice(0, 5).map((row: any, index: number) => (
               <div className="relationship-row" key={row.source_id}>
@@ -130,14 +130,16 @@ export default async function ClientsPage({
 
       {canAdminClients ? (
         <section className="panel" id="new-client" style={{ marginTop: 16 }}>
-          <h2>New API app</h2>
+          <h2>Create API key</h2>
           <form className="form" action={createApiClientAction}>
             <div className="field">
-              <label htmlFor="name">App or integration name</label>
+              <label htmlFor="name">App Name</label>
+              <small className="field-help">The application or service that will use this API key.</small>
               <input id="name" name="name" required placeholder="Production CRM" />
             </div>
             <div className="field">
-              <label htmlFor="keyLabel">Initial key name</label>
+              <label htmlFor="keyLabel">Key Name</label>
+              <small className="field-help">A label describing where the key is used, such as Production, CRM, or Support. This is not the secret key.</small>
               <input id="keyLabel" name="keyLabel" required defaultValue="Production" placeholder="Production, Staging, CRM, Support" />
             </div>
             <button className="primary" type="submit"><Plus size={16} />Create API key</button>
