@@ -357,6 +357,70 @@ export async function updateOrganizationMembershipAction(formData: FormData) {
   redirect("/organizations");
 }
 
+export async function updateClientUserAction(formData: FormData) {
+  const { session, account } = await requireAccountActionRole("org_admin");
+  const membershipId = String(formData.get("membershipId") || "");
+  const organizationId = String(formData.get("organizationId") || "");
+  const userId = String(formData.get("userId") || "");
+  const name = String(formData.get("name") || "").trim();
+  const requestedRole = String(formData.get("role") || "viewer");
+  const requestedStatus = String(formData.get("status") || "active");
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+  const returnPath = `/organizations/users/${encodeURIComponent(membershipId)}/edit`;
+  if (!membershipId || !organizationId || !userId || !name) redirect("/organizations");
+  if (!account.isPlatformAdmin && organizationId !== account.organizationId) redirect("/organizations");
+  if (!["org_admin", "operator", "viewer"].includes(requestedRole)) redirectWithMessage(returnPath, "Role is invalid");
+  if (!["active", "disabled"].includes(requestedStatus)) redirectWithMessage(returnPath, "Status is invalid");
+  if (password && password.length < 12) redirectWithMessage(returnPath, "Temporary password must be at least 12 characters");
+  if (password !== confirmPassword) redirectWithMessage(returnPath, "Passwords do not match");
+
+  const existing = await query<{ user_id: string; role: string }>(
+    `SELECT m.user_id, m.role
+       FROM organization_memberships m
+       JOIN admin_users u ON u.id = m.user_id
+      WHERE m.id = $1
+        AND m.organization_id = $2
+        AND m.user_id = $3
+        AND m.role <> 'platform_admin'
+        AND u.role NOT IN ('platform_admin', 'admin')`,
+    [membershipId, organizationId, userId]
+  );
+  if (!existing.rows[0]) redirect("/organizations");
+
+  const editingSelf = userId === session.user.id && !account.isPlatformAdmin;
+  const role = editingSelf ? existing.rows[0].role : requestedRole;
+  const status = editingSelf ? "active" : requestedStatus;
+  await transaction(async (db) => {
+    await db.query(
+      `UPDATE organization_memberships
+          SET role = $1,
+              status = $2,
+              updated_at = now()
+        WHERE id = $3
+          AND organization_id = $4
+          AND user_id = $5`,
+      [role, status, membershipId, organizationId, userId]
+    );
+    if (password) {
+      await db.query(
+        `UPDATE admin_users
+            SET name = $1,
+                password_hash = $2,
+                must_change_password = true,
+                password_changed_at = NULL,
+                updated_at = now()
+          WHERE id = $3`,
+        [name, hashPassword(password), userId]
+      );
+    } else {
+      await db.query("UPDATE admin_users SET name = $1, updated_at = now() WHERE id = $2", [name, userId]);
+    }
+  });
+  revalidatePath("/organizations");
+  redirect("/organizations");
+}
+
 export async function removeOrganizationMembershipAction(formData: FormData) {
   const { account } = await requireAccountActionRole("org_admin");
 

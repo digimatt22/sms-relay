@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { Building2, RefreshCw, Save, Trash2, UserPlus } from "lucide-react";
+import { Building2, Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
 import {
   removeOrganizationMembershipAction,
   resendUserInvitationAction,
   revokeUserInvitationAction,
   switchOrganizationAction,
-  updateOrganizationMembershipAction
 } from "@/app/actions";
 import { query } from "@/lib/db";
 import { accountHasRole, getAccountContext } from "@/lib/account-context";
@@ -16,7 +15,7 @@ import { requireAdminPage } from "@/lib/page-auth";
 export default async function ClientsAdminPage({
   searchParams
 }: {
-  searchParams: Promise<{ inviteToken?: string }>;
+  searchParams: Promise<{ inviteToken?: string; clientId?: string }>;
 }) {
   const session = await requireAdminPage();
   const sp = await searchParams;
@@ -25,6 +24,7 @@ export default async function ClientsAdminPage({
   const clients = await listOrganizationsForUser(session.user.id, session.user.role);
   const currentOrganizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
   const clientIds = clients.map((client: any) => client.id);
+  const selectedClientId = sp.clientId && clientIds.includes(sp.clientId) ? sp.clientId : "";
   const memberships = await query(
     `SELECT m.*, u.email, u.name AS user_name, o.name AS client_name
        FROM organization_memberships m
@@ -36,7 +36,13 @@ export default async function ClientsAdminPage({
       ORDER BY o.name ASC, u.email ASC`,
     [clientIds]
   );
-  const invitations = await listPendingUserInvitations(clientIds);
+  const allInvitations = await listPendingUserInvitations(clientIds);
+  const filteredMemberships = selectedClientId
+    ? memberships.rows.filter((membership: any) => membership.organization_id === selectedClientId)
+    : memberships.rows;
+  const invitations = selectedClientId
+    ? allInvitations.filter((invitation: any) => invitation.organization_id === selectedClientId)
+    : allInvitations;
   const stats = await query(
     `SELECT o.id,
             COUNT(DISTINCT c.id)::int AS api_app_count,
@@ -80,7 +86,7 @@ export default async function ClientsAdminPage({
       ) : null}
 
       <section className="metric-grid">
-        <MetricCard label={platformAdmin ? "Clients" : "Users"} value={platformAdmin ? clients.length : memberships.rows.length} note={platformAdmin ? "Tenant accounts" : `${planUsage?.users || 0} / ${account.plan.includedUsers} included`} />
+        <MetricCard label={platformAdmin ? "Clients" : "Users"} value={platformAdmin ? clients.length : filteredMemberships.length} note={platformAdmin ? "Tenant accounts" : `${planUsage?.users || 0} / ${account.plan.includedUsers} included`} />
         <MetricCard label="Pending invites" value={invitations.length} note="Awaiting acceptance" />
         <MetricCard label="API apps" value={stats.rows.reduce((sum: number, row: any) => sum + row.api_app_count, 0)} note="Across visible clients" />
         {platformAdmin ? <MetricCard label="Plan" value={account.plan.name} note={account.plan.displayPrice} /> : null}
@@ -160,42 +166,41 @@ export default async function ClientsAdminPage({
       <section className="panel" style={{ marginTop: 16 }}>
         <div className="page-header" style={{ marginBottom: 12 }}>
           <div>
-            <h2>{platformAdmin ? "Client users and invitations" : "Account users and invitations"}</h2>
-            <p className="muted">{platformAdmin ? "Manage users across visible clients." : "Invite users into this account up to the plan limit."}</p>
+            <h2>Client Users</h2>
+            <p className="muted">{platformAdmin ? "Manage users across visible clients." : "Manage users who can access this client account."}</p>
           </div>
           {!platformAdmin && canManageUsers ? (
             <Link className="button" href={`/organizations/${account.organizationId}/invite`}><UserPlus size={16} />Invite user</Link>
           ) : null}
         </div>
+        {canManageUsers && clients.length > 1 ? (
+          <form className="actions-row" method="get" style={{ justifyContent: "flex-start", marginBottom: 16 }}>
+            <label htmlFor="clientFilter">Client</label>
+            <select id="clientFilter" name="clientId" defaultValue={selectedClientId}>
+              <option value="">All clients</option>
+              {clients.map((client: any) => <option key={client.id} value={client.id}>{client.name}</option>)}
+            </select>
+            <button className="secondary-button" type="submit">Filter</button>
+          </form>
+        ) : null}
         <table className="table">
           <thead><tr><th>Client</th><th>User</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {memberships.rows.map((membership: any) => (
+            {filteredMemberships.map((membership: any) => (
               <tr key={membership.id}>
                 <td>{membership.client_name}</td>
-                <td>{membership.user_name || membership.email}</td>
                 <td>
-                  {canManageUsers ? (
-                    <form id={`role-${membership.id}`} action={updateOrganizationMembershipAction} style={{ display: "flex", gap: 8 }}>
-                      <input type="hidden" name="organizationId" value={membership.organization_id} />
-                      <input type="hidden" name="userId" value={membership.user_id} />
-                      <select name="role" defaultValue={membership.role}>
-                        <option value="org_admin">Client admin</option>
-                        <option value="operator">Operator</option>
-                        <option value="viewer">Viewer</option>
-                      </select>
-                    </form>
-                  ) : (
-                    <span className="chip">{membership.role}</span>
-                  )}
+                  {membership.user_name || membership.email}
+                  {membership.user_name ? <div className="object-meta">{membership.email}</div> : null}
                 </td>
-                <td><span className="chip good">Active</span></td>
+                <td><span className="chip">{membership.role}</span></td>
+                <td><span className={`chip ${membership.status === "active" ? "good" : "warn"}`}>{membership.status}</span></td>
                 <td>
                   {canManageUsers ? (
                     <div className="actions-row" style={{ justifyContent: "flex-start" }}>
-                    <button className="icon-button" form={`role-${membership.id}`} type="submit" aria-label={`Save role for ${membership.email}`}>
-                      <Save size={15} />
-                    </button>
+                    <Link className="icon-button" href={`/organizations/users/${membership.id}/edit`} aria-label={`Edit ${membership.email}`}>
+                      <Pencil size={15} />
+                    </Link>
                     <form action={removeOrganizationMembershipAction}>
                       <input type="hidden" name="organizationId" value={membership.organization_id} />
                       <input type="hidden" name="userId" value={membership.user_id} />
@@ -244,7 +249,7 @@ export default async function ClientsAdminPage({
                 </td>
               </tr>
             ))}
-            {!memberships.rows.length && !invitations.length ? <tr><td colSpan={5}>No client users or invitations yet.</td></tr> : null}
+            {!filteredMemberships.length && !invitations.length ? <tr><td colSpan={5}>No client users found.</td></tr> : null}
           </tbody>
         </table>
       </section>

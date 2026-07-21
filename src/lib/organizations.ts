@@ -24,6 +24,7 @@ export async function listOrganizationsForUser(userId: string, role?: string | n
        FROM organization_memberships m
        JOIN organizations o ON o.id = m.organization_id
       WHERE m.user_id = $1
+        AND m.status = 'active'
       ORDER BY o.name ASC`,
     [userId]
   );
@@ -33,11 +34,12 @@ export async function listOrganizationsForUser(userId: string, role?: string | n
 export async function getCurrentOrganizationId(input?: { userId?: string; role?: string | null }) {
   const cookieStore = await cookies();
   const selectedId = cookieStore.get(ORG_COOKIE)?.value;
-  if (selectedId && input?.userId) {
+  if (input?.userId) {
     const organizations = await listOrganizationsForUser(input.userId, input.role);
-    if (organizations.some((organization: any) => organization.id === selectedId)) {
+    if (selectedId && organizations.some((organization: any) => organization.id === selectedId)) {
       return selectedId;
     }
+    if (organizations[0]?.id) return organizations[0].id as string;
   }
   return DEFAULT_ORGANIZATION_ID;
 }
@@ -242,6 +244,7 @@ export async function acceptUserInvitation(input: {
        VALUES ($1, $2, $3)
        ON CONFLICT (organization_id, user_id) DO UPDATE
          SET role = EXCLUDED.role,
+             status = 'active',
              updated_at = now()`,
       [invitation.organization_id, user.id, normalizeRole(invitation.role)]
     );
@@ -270,6 +273,7 @@ export async function upsertOrganizationMembership(input: {
      VALUES ($1, $2, $3)
      ON CONFLICT (organization_id, user_id) DO UPDATE
        SET role = EXCLUDED.role,
+           status = 'active',
            updated_at = now()
      RETURNING *`,
     [input.organizationId, input.userId, normalizeRole(input.role)]

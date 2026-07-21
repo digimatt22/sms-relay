@@ -65,6 +65,7 @@ export async function getAccountContext(session: { user: { id: string; role?: st
        LEFT JOIN organization_memberships m
          ON m.organization_id = o.id
         AND m.user_id = $2
+        AND m.status = 'active'
        LEFT JOIN organization_plans op
          ON op.organization_id = o.id
         AND op.status = 'active'

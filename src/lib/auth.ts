@@ -30,7 +30,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           `SELECT id, email, name, role, password_hash
              FROM admin_users
             WHERE email = $1
-              AND (mobile_number IS NULL OR mobile_number_verified_at IS NOT NULL)`,
+              AND (mobile_number IS NULL OR mobile_number_verified_at IS NOT NULL)
+              AND (
+                role IN ('platform_admin', 'admin')
+                OR EXISTS (
+                  SELECT 1
+                    FROM organization_memberships m
+                   WHERE m.user_id = admin_users.id
+                     AND m.status = 'active'
+                )
+              )`,
           [parsed.data.email.toLowerCase()]
         );
         const user = result.rows[0];
