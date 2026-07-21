@@ -54,26 +54,6 @@ function slugify(value: string) {
     .slice(0, 80);
 }
 
-export async function createPricingLeadAction(formData: FormData) {
-  const email = String(formData.get("email") || "").trim().toLowerCase();
-  const company = String(formData.get("company") || "").trim();
-  const planSlug = String(formData.get("planSlug") || "").trim();
-  const notes = String(formData.get("notes") || "").trim();
-  if (!email || !email.includes("@")) redirect("/pricing?lead=invalid#signup");
-
-  await query(
-    `INSERT INTO pricing_leads (email, company, plan_slug, notes)
-     VALUES ($1, $2, NULLIF($3, ''), $4)
-     ON CONFLICT (email) DO UPDATE
-       SET company = COALESCE(NULLIF(EXCLUDED.company, ''), pricing_leads.company),
-           plan_slug = COALESCE(EXCLUDED.plan_slug, pricing_leads.plan_slug),
-           notes = COALESCE(NULLIF(EXCLUDED.notes, ''), pricing_leads.notes),
-           updated_at = now()`,
-    [email, company || null, planSlug, notes || null]
-  );
-  redirect("/pricing?lead=ok#signup");
-}
-
 async function requireActionRole(minimumRole: Role) {
   const session = await auth();
   if (!session?.user) redirect("/login");

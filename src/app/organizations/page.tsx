@@ -8,7 +8,6 @@ import {
 } from "@/app/actions";
 import { query } from "@/lib/db";
 import { accountHasRole, getAccountContext } from "@/lib/account-context";
-import { getOrganizationPlanUsage } from "@/lib/plans";
 import { getCurrentOrganizationId, listOrganizationsForUser, listPendingUserInvitations } from "@/lib/organizations";
 import { requireAdminPage } from "@/lib/page-auth";
 
@@ -64,7 +63,6 @@ export default async function ClientsAdminPage({
     usersByClient.set(membership.organization_id, list);
   });
   const platformAdmin = session.user.role === "platform_admin";
-  const planUsage = platformAdmin ? null : await getOrganizationPlanUsage(account.organizationId);
 
   return (
     <>
@@ -86,10 +84,9 @@ export default async function ClientsAdminPage({
       ) : null}
 
       <section className="metric-grid">
-        <MetricCard label={platformAdmin ? "Clients" : "Users"} value={platformAdmin ? clients.length : filteredMemberships.length} note={platformAdmin ? "Tenant accounts" : `${planUsage?.users || 0} / ${account.plan.includedUsers} included`} />
+        <MetricCard label={platformAdmin ? "Clients" : "Users"} value={platformAdmin ? clients.length : filteredMemberships.length} note={platformAdmin ? "Tenant accounts" : "Client user accounts"} />
         <MetricCard label="Pending invites" value={invitations.length} note="Awaiting acceptance" />
         <MetricCard label="API apps" value={stats.rows.reduce((sum: number, row: any) => sum + row.api_app_count, 0)} note="Across visible clients" />
-        {platformAdmin ? <MetricCard label="Plan" value={account.plan.name} note={account.plan.displayPrice} /> : null}
       </section>
 
       {sp.inviteToken ? (

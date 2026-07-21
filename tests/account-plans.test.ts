@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 test("account plans and gateway access schema are present", () => {
   const migration = readFileSync("migrations/010_account_plans_gateway_access.sql", "utf8");
@@ -17,16 +17,13 @@ test("account plans and gateway access schema are present", () => {
   assert.match(migration, /'scale'.*50000/s);
 });
 
-test("pricing leads are stored for public signups", () => {
+test("historical pricing leads schema remains available", () => {
   const migration = readFileSync("migrations/011_pricing_leads.sql", "utf8");
-  const actions = readFileSync("src/app/actions.ts", "utf8");
 
   assert.match(migration, /CREATE TABLE IF NOT EXISTS pricing_leads/);
   assert.match(migration, /email text NOT NULL UNIQUE/);
   assert.match(migration, /\$49\/mo/);
   assert.doesNotMatch(migration, /placeholder/);
-  assert.match(actions, /createPricingLeadAction/);
-  assert.match(actions, /INSERT INTO pricing_leads/);
 });
 
 test("account context and plan capacity helpers back account-scoped UX", () => {
@@ -41,9 +38,8 @@ test("account context and plan capacity helpers back account-scoped UX", () => {
   assert.match(plans, /Monthly message limit exceeded/);
   assert.match(layout, /label: isPlatformAdmin \? "Clients" : "Account"/);
   assert.match(layout, /label: isPlatformAdmin \? "Clients" : "Users"/);
-  assert.match(layout, /isPlatformAdmin \? \[\{ href: "\/account\/plan", label: "Plan & Billing"/);
-  const accountPlanPage = readFileSync("src/app/account/plan/page.tsx", "utf8");
-  assert.match(accountPlanPage, /requireRolePage\("platform_admin"\)/);
+  assert.doesNotMatch(layout, /Plan & Billing/);
+  assert.doesNotMatch(layout, /\/account\/plan/);
 });
 
 test("gateway visibility separates status from details and management", () => {
@@ -63,16 +59,7 @@ test("gateway visibility separates status from details and management", () => {
   assert.match(logs, /access_level IN \('details', 'manage'\)/);
 });
 
-test("public pricing page uses seeded plan data", () => {
-  const pricing = readFileSync("src/app/pricing/page.tsx", "utf8");
-
-  assert.match(pricing, /listPublicPlans/);
-  assert.match(pricing, /sent messages\/month/);
-  assert.match(pricing, /display_price/);
-  assert.match(pricing, /included_users/);
-  assert.match(pricing, /createPricingLeadAction/);
-  assert.match(pricing, /Get more information/);
-  assert.doesNotMatch(pricing, /Open dashboard/i);
-  assert.doesNotMatch(pricing, /placeholder pricing/i);
-  assert.doesNotMatch(pricing, /placeholder content/i);
+test("plan and pricing user interfaces are hidden", () => {
+  assert.equal(existsSync("src/app/account/plan/page.tsx"), false);
+  assert.equal(existsSync("src/app/pricing/page.tsx"), false);
 });

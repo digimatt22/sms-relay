@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   Bell,
+  BookOpen,
   Building2,
   CircleHelp,
-  FileKey2,
   Gauge,
   Inbox,
   KeyRound,
@@ -57,8 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       items: [
         { href: "/organizations", label: isPlatformAdmin ? "Clients" : "Users", icon: Building2 },
         { href: "/clients", label: "API Apps & Keys", icon: KeyRound },
-        { href: "/usage", label: "Usage", icon: Gauge },
-        ...(isPlatformAdmin ? [{ href: "/account/plan", label: "Plan & Billing", icon: FileKey2 }] : [])
+        { href: "/usage", label: "Usage", icon: Gauge }
       ]
     }
   ];
@@ -109,7 +108,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
               <div className="sidebar-footer">
                 <Link className="nav-link support-link" href="/docs">
-                  <FileKey2 size={16} />
+                  <BookOpen size={16} />
                   <span>API Docs</span>
                 </Link>
                 <form action={logoutAction}>
