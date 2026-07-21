@@ -10,6 +10,7 @@
   "dockerfile": "Dockerfile",
   "requires_env": [
     "DATABASE_URL",
+    "PLATFORM_NAME",
     "AUTH_SECRET",
     "AUTH_URL",
     "NEXT_PUBLIC_APP_URL",

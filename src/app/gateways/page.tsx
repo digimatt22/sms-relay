@@ -211,7 +211,7 @@ export default async function GatewaysPage() {
             <form className="form" action={createGatewayAction}>
             <div className="field">
               <label htmlFor="name">Name</label>
-              <input id="name" name="name" required placeholder="RelayHub Edge 01" />
+              <input id="name" name="name" required placeholder="SNS Gateway 01" />
             </div>
             <div className="field">
               <label htmlFor="hardwareType">Hardware</label>

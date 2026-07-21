@@ -1,4 +1,5 @@
 import { acceptUserInvitationAction } from "@/app/actions";
+import { getPlatformName } from "@/lib/branding";
 
 export default async function InvitationPage({
   params,
@@ -9,13 +10,14 @@ export default async function InvitationPage({
 }) {
   const { token } = await params;
   const sp = await searchParams;
+  const platformName = getPlatformName();
 
   return (
     <section className="panel login">
       <div className="page-header">
         <div>
           <h1>Accept invitation</h1>
-          <p>Set your RelayHub SMS password</p>
+          <p>Set your {platformName} password</p>
         </div>
       </div>
       <form className="form" action={acceptUserInvitationAction}>

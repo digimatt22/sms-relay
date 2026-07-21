@@ -7,6 +7,7 @@ import { humanize } from "@/lib/format";
 import { getCurrentOrganizationId } from "@/lib/organizations";
 import { requireAdminPage } from "@/lib/page-auth";
 import { hasRole } from "@/lib/rbac";
+import { getPlatformName } from "@/lib/branding";
 
 export default async function ClientWorkspacePage({
   params,
@@ -20,6 +21,7 @@ export default async function ClientWorkspacePage({
   const sp = await searchParams;
   const organizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
   const canAdminClients = hasRole(session, "org_admin");
+  const platformName = getPlatformName();
 
   const [clientResult, messages, inbound, callbacks, pools, keys] = await Promise.all([
     query(
@@ -216,7 +218,7 @@ export default async function ClientWorkspacePage({
               </div>
               <div className="field">
                 <label htmlFor="test-message">Message</label>
-                <textarea id="test-message" placeholder="Hello from RelayHub SMS..." rows={4} />
+                <textarea id="test-message" placeholder={`Hello from ${platformName}...`} rows={4} />
               </div>
               <div className="actions-row" style={{ justifyContent: "space-between" }}>
                 <Link className="button secondary" href="/messages/new">Open composer</Link>

@@ -18,14 +18,19 @@ import { auth } from "@/lib/auth";
 import { logoutAction, switchOrganizationAction } from "@/app/actions";
 import { getCurrentOrganizationId, listOrganizationsForUser } from "@/lib/organizations";
 import { normalizeRole } from "@/lib/rbac";
+import { getPlatformName } from "@/lib/branding";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "RelayHub SMS",
-  description: "Admin dashboard for RelayHub SMS"
-};
+export function generateMetadata(): Metadata {
+  const platformName = getPlatformName();
+  return {
+    title: platformName,
+    description: `Admin dashboard for ${platformName}`
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const platformName = getPlatformName();
   const session = await auth();
   const isPlatformAdmin = normalizeRole(session?.user?.role) === "platform_admin";
   const organizations = session?.user
@@ -71,7 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div>
                 <Link className="brand brand-lockup" href="/">
                   <span className="brand-mark"><Workflow size={17} /></span>
-                  <span>RelayHub SMS</span>
+                  <span>{platformName}</span>
                 </Link>
                 <p className="brand-subtitle">SMS relay operations</p>
                 {organizations.length > 1 ? (

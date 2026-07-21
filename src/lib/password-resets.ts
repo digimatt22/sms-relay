@@ -1,6 +1,7 @@
 import { query, transaction } from "@/lib/db";
 import { createMessage } from "@/lib/messages";
 import { createPasswordResetCode, hashPassword, verifyPassword } from "@/lib/security";
+import { getPlatformName } from "@/lib/branding";
 
 const RESET_CODE_LIFETIME_MINUTES = 15;
 const RESET_CODE_MAX_ATTEMPTS = 5;
@@ -63,7 +64,7 @@ export async function requestPasswordReset(email: string) {
   try {
     const message = await createMessage({
       to: user.mobile_number,
-      body: `RelayHub SMS password reset code: ${code}. It expires in ${RESET_CODE_LIFETIME_MINUTES} minutes.`,
+      body: `${getPlatformName()} password reset code: ${code}. It expires in ${RESET_CODE_LIFETIME_MINUTES} minutes.`,
       priority: 10,
       metadata: {
         systemType: "password_reset",

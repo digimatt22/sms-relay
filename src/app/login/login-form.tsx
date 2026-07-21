@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { loginAction } from "@/app/actions";
 
-export default function LoginForm({ passwordChanged, passwordReset, mobileVerified }: { passwordChanged: boolean; passwordReset: boolean; mobileVerified: boolean }) {
+export default function LoginForm({ passwordChanged, passwordReset, mobileVerified, platformName }: { passwordChanged: boolean; passwordReset: boolean; mobileVerified: boolean; platformName: string }) {
   const [error, formAction, pending] = useActionState(loginAction, null);
 
   return (
     <section className="panel login">
       <div className="page-header">
         <div>
-          <h1>RelayHub SMS</h1>
+          <h1>{platformName}</h1>
           <p>Admin sign in</p>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { query, transaction } from "@/lib/db";
 import { createMessage } from "@/lib/messages";
 import { createPasswordResetCode, hashPassword, verifyPassword } from "@/lib/security";
+import { getPlatformName } from "@/lib/branding";
 
 const VERIFICATION_CODE_LIFETIME_MINUTES = 15;
 const VERIFICATION_CODE_MAX_ATTEMPTS = 5;
@@ -56,7 +57,7 @@ export async function requestMobileVerification(userId: string, organizationId: 
   try {
     const message = await createMessage({
       to: user.mobile_number,
-      body: `RelayHub SMS mobile verification code: ${code}. It expires in ${VERIFICATION_CODE_LIFETIME_MINUTES} minutes.`,
+      body: `${getPlatformName()} mobile verification code: ${code}. It expires in ${VERIFICATION_CODE_LIFETIME_MINUTES} minutes.`,
       priority: 10,
       metadata: {
         systemType: "mobile_verification",

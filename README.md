@@ -1,6 +1,6 @@
-# RelayHub SMS
+# DigiColony SNS
 
-RelayHub SMS is a locally runnable SMS gateway hub with an admin dashboard, Postgres-backed message queue, and a Raspberry Pi Zero 2 W gateway service for SIM7070G outbound and inbound SMS.
+DigiColony SNS is a locally runnable SMS gateway hub with an admin dashboard, Postgres-backed message queue, and a Raspberry Pi Zero 2 W gateway service for SIM7070G outbound and inbound SMS. Set `PLATFORM_NAME` to change the customer-facing brand for a white-label deployment.
 
 ## Local Hub
 
@@ -42,7 +42,7 @@ curl https://sns.digicolony.net/install | sudo bash
 ```
 
 The installer assumes Raspberry Pi OS is already installed. It prompts for:
-- RelayHub server URL
+- Platform server URL
 - gateway API key
 - APN, defaulting to `wholesale` for Tello testing
 - carrier, defaulting to `Tello`

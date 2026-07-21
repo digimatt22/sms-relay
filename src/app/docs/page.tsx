@@ -1,4 +1,5 @@
 import { requireAdminPage } from "@/lib/page-auth";
+import { getPlatformName } from "@/lib/branding";
 
 const baseUrl = "https://sns.digicolony.net";
 
@@ -44,7 +45,7 @@ const gatewayEndpoints = [
 ];
 
 const statuses = [
-  ["queued", "Accepted by RelayHub and waiting for an eligible gateway."],
+  ["queued", "Accepted by the platform and waiting for an eligible gateway."],
   ["claimed", "Reserved by one gateway for a short claim window."],
   ["sending", "Gateway started a modem send attempt."],
   ["retry_scheduled", "Send failed and will be retried after backoff."],
@@ -55,14 +56,15 @@ const statuses = [
 
 export default async function ApiDocsPage() {
   await requireAdminPage();
+  const platformName = getPlatformName();
 
   return (
     <>
       <header className="page-header">
         <div>
           <p className="muted">Developer documentation</p>
-          <h1>RelayHub SMS API</h1>
-          <p>Everything needed to send SMS, track status, receive replies, and integrate client applications with RelayHub.</p>
+          <h1>{platformName} API</h1>
+          <p>Everything needed to send SMS, track status, receive replies, and integrate client applications with {platformName}.</p>
         </div>
       </header>
 
@@ -81,7 +83,7 @@ export default async function ApiDocsPage() {
   -H "Content-Type: application/json" \\
   -d '{
     "to": "+13213609348",
-    "body": "Hello from RelayHub",
+    "body": "Hello from ${platformName}",
     "idempotencyKey": "order-123-confirmation",
     "metadata": {
       "customerRef": "order-123"
@@ -122,7 +124,7 @@ export default async function ApiDocsPage() {
     "id": "ea90f927-dacc-45fa-9542-c6ecb0994ee2",
     "status": "queued",
     "to_number_redacted": "***-***-9348",
-    "body": "Hello from RelayHub",
+    "body": "Hello from ${platformName}",
     "idempotency_key": "order-123-confirmation",
     "submitted_via": "api",
     "created_at": "2026-07-11T20:10:30.000Z"
@@ -213,7 +215,7 @@ curl -X POST ${baseUrl}/api/messages/{messageId}/requeue \\
         <h2>Callbacks and Replies</h2>
         <p>
           Add <code>callbackUrl</code> when creating a message to receive inbound replies matched to that outbound message.
-          RelayHub matches replies by client, phone number, carrier-submitted outbound status, and the most recent submitted message within the matching window.
+          {platformName} matches replies by client, phone number, carrier-submitted outbound status, and the most recent submitted message within the matching window.
         </p>
         <CodeBlock>{`{
   "event": "sms.inbound.received",

@@ -2,7 +2,7 @@ export const SUPPORTED_GATEWAY_HARDWARE = [
   {
     value: "RelayHub Edge One",
     label: "RelayHub Edge One",
-    description: "Managed RelayHub SMS gateway appliance"
+    description: "Managed SMS gateway appliance"
   }
 ] as const;
 
