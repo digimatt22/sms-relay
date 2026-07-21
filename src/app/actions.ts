@@ -42,7 +42,8 @@ import { requestPasswordReset, resetPasswordWithCode } from "@/lib/password-rese
 import { requestMobileVerification, requestMobileVerificationForEmail, verifyMobileCode } from "@/lib/mobile-verification";
 
 function redirectWithMessage(path: string, message: string): never {
-  redirect(`${path}?error=${encodeURIComponent(message)}`);
+  const separator = path.includes("?") ? "&" : "?";
+  redirect(`${path}${separator}error=${encodeURIComponent(message)}`);
 }
 
 function slugify(value: string) {

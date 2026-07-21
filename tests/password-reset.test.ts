@@ -19,6 +19,7 @@ test("security message redaction removes codes from user-facing results", () => 
 test("SMS password recovery is rate limited, expiring, and single use", () => {
   const migration = readFileSync("migrations/012_sms_password_resets.sql", "utf8");
   const resets = readFileSync("src/lib/password-resets.ts", "utf8");
+  const actions = readFileSync("src/app/actions.ts", "utf8");
   const forgotPage = readFileSync("src/app/forgot-password/page.tsx", "utf8");
   const resetPage = readFileSync("src/app/reset-password/page.tsx", "utf8");
 
@@ -32,6 +33,7 @@ test("SMS password recovery is rate limited, expiring, and single use", () => {
   assert.match(resets, /UPDATE admin_users/);
   assert.match(forgotPage, /Send reset code/);
   assert.match(resetPage, /autoComplete="one-time-code"/);
+  assert.match(actions, /path\.includes\("\?"\) \? "&" : "\?"/);
 });
 
 test("registration requires SMS mobile verification before login", () => {
