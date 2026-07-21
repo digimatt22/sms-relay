@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "name": "relayhub-sms",
+  "hostname": "sns.digicolony.net",
+  "framework": "nextjs",
+  "container_port": 3000,
+  "host_port": null,
+  "network_subnet": null,
+  "health_path": "/api/health",
+  "dockerfile": "Dockerfile",
+  "requires_env": [
+    "DATABASE_URL",
+    "AUTH_SECRET",
+    "AUTH_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "RELAYHUB_PUBLIC_URL",
+    "INSTALLER_URL",
+    "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
+  ]
+}

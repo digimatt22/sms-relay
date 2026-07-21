@@ -1,0 +1,14 @@
+node_modules/
+.cache/
+.next/
+dist/
+packages/gateway/dist/
+packages/gateway/*.tsbuildinfo
+*.tsbuildinfo
+.gateway-package/
+.env
+.env.local
+public/gateway.tar.gz
+SMS Gateway.zip
+*.log
+.DS_Store

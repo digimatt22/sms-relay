@@ -1,0 +1,13 @@
+.git
+.cache
+.next
+.env
+.env.*
+node_modules
+packages/gateway/dist
+packages/gateway/*.tsbuildinfo
+*.tsbuildinfo
+SMS Gateway.zip
+*.log
+.DS_Store
+docs/reviews

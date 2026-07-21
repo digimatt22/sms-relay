@@ -1,0 +1,41 @@
+{
+  "name": "relayhub-sms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:seed-admin": "node scripts/seed-admin.mjs",
+    "deploy:check": "bash scripts/production-deploy-check.sh",
+    "gateway:dev": "tsx packages/gateway/src/index.ts",
+    "gateway:build": "tsc -p packages/gateway/tsconfig.json",
+    "gateway:package": "bash scripts/package-gateway.sh"
+  },
+  "dependencies": {
+    "@auth/pg-adapter": "^1.11.1",
+    "lucide-react": "^1.24.0",
+    "next": "^16.2.10",
+    "next-auth": "^5.0.0-beta.30",
+    "pg": "^8.13.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "serialport": "^13.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@types/pg": "^8.11.11",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "eslint": "^9.20.0",
+    "eslint-config-next": "^16.2.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
