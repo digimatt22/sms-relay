@@ -37,6 +37,9 @@ import { getAccountContext, accountHasRole } from "@/lib/account-context";
 import { assertPlanCapacity } from "@/lib/plans";
 import { mustChangePassword } from "@/lib/passwords";
 import { getGatewayAccessLevel, hasGatewayAccessLevel } from "@/lib/gateway-access";
+import { normalizePhoneNumber } from "@/lib/phone";
+import { requestPasswordReset, resetPasswordWithCode } from "@/lib/password-resets";
+import { requestMobileVerification, requestMobileVerificationForEmail, verifyMobileCode } from "@/lib/mobile-verification";
 
 function redirectWithMessage(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -115,6 +118,46 @@ export async function loginAction(_previousState: string | null, formData: FormD
   return null;
 }
 
+export async function requestPasswordResetAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  if (email && email.includes("@")) {
+    await requestPasswordReset(email);
+  }
+  redirect(`/reset-password?sent=1&email=${encodeURIComponent(email)}`);
+}
+
+export async function resetPasswordAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const code = String(formData.get("code") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+  const returnPath = `/reset-password?email=${encodeURIComponent(email)}`;
+  if (!/^\d{6}$/.test(code)) redirectWithMessage(returnPath, "Enter the six-digit reset code");
+  if (password.length < 12) redirectWithMessage(returnPath, "Use at least 12 characters for your new password");
+  if (password !== confirmPassword) redirectWithMessage(returnPath, "Passwords do not match");
+
+  const reset = await resetPasswordWithCode({ email, code, password });
+  if (!reset) redirectWithMessage(returnPath, "Reset code is invalid, expired, or has too many attempts");
+  redirect("/login?passwordReset=1");
+}
+
+export async function resendMobileVerificationAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  if (email && email.includes("@")) await requestMobileVerificationForEmail(email);
+  redirect(`/verify-mobile?sent=1&email=${encodeURIComponent(email)}`);
+}
+
+export async function verifyMobileAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const code = String(formData.get("code") || "").trim();
+  const returnPath = `/verify-mobile?email=${encodeURIComponent(email)}`;
+  if (!/^\d{6}$/.test(code)) redirectWithMessage(returnPath, "Enter the six-digit verification code");
+  if (!(await verifyMobileCode({ email, code }))) {
+    redirectWithMessage(returnPath, "Verification code is invalid, expired, or has too many attempts");
+  }
+  redirect("/login?mobileVerified=1");
+}
+
 export async function changeRequiredPasswordAction(_previousState: string | null, formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -185,17 +228,19 @@ export async function createDashboardUserAction(formData: FormData) {
 
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const name = String(formData.get("name") || "").trim();
+  const mobileNumber = String(formData.get("mobileNumber") || "");
   const password = String(formData.get("password") || "");
   const role = String(formData.get("role") || "viewer");
   const requestedOrganizationId = String(formData.get("organizationId") || "");
   const organizationId = account.isPlatformAdmin ? requestedOrganizationId : account.organizationId;
-  if (!email || !password || !organizationId) redirect("/organizations");
+  if (!email || !password || !mobileNumber || !organizationId) redirect("/organizations");
   if (role === "platform_admin") redirect("/organizations");
 
-  const user = await createDashboardUser({ email, name, password, role });
+  const user = await createDashboardUser({ email, name, mobileNumber, password, role });
   await upsertOrganizationMembership({ organizationId, userId: user.id, role });
+  await requestMobileVerification(user.id, organizationId);
   revalidatePath("/organizations");
-  redirect("/organizations");
+  redirect(`/verify-mobile?sent=1&email=${encodeURIComponent(email)}`);
 }
 
 export async function createUserInvitationAction(formData: FormData) {
@@ -278,15 +323,23 @@ export async function revokeUserInvitationAction(formData: FormData) {
 
 export async function acceptUserInvitationAction(formData: FormData) {
   const token = String(formData.get("token") || "");
+  const mobileNumberRaw = String(formData.get("mobileNumber") || "");
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
   if (!token) redirect("/login");
-  if (password.length < 8) redirect(`/invitations/${encodeURIComponent(token)}?error=Password%20must%20be%20at%20least%208%20characters`);
+  let mobileNumber: string;
+  try {
+    mobileNumber = normalizePhoneNumber(mobileNumberRaw);
+  } catch (error) {
+    redirect(`/invitations/${encodeURIComponent(token)}?error=${encodeURIComponent(error instanceof Error ? error.message : "Mobile number is invalid")}`);
+  }
+  if (password.length < 12) redirect(`/invitations/${encodeURIComponent(token)}?error=Password%20must%20be%20at%20least%2012%20characters`);
   if (password !== confirmPassword) redirect(`/invitations/${encodeURIComponent(token)}?error=Passwords%20do%20not%20match`);
 
-  const accepted = await acceptUserInvitation({ token, password });
+  const accepted = await acceptUserInvitation({ token, mobileNumber, password });
   if (!accepted) redirect(`/invitations/${encodeURIComponent(token)}?error=Invitation%20is%20invalid%20or%20expired`);
-  redirect("/login?accepted=1");
+  await requestMobileVerification(accepted.user.id, accepted.invitation.organization_id);
+  redirect(`/verify-mobile?sent=1&email=${encodeURIComponent(accepted.user.email)}`);
 }
 
 export async function updateOrganizationMembershipAction(formData: FormData) {

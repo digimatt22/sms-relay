@@ -3,8 +3,8 @@ import LoginForm from "@/app/login/login-form";
 export default async function LoginPage({
   searchParams
 }: {
-  searchParams: Promise<{ passwordChanged?: string }>;
+  searchParams: Promise<{ passwordChanged?: string; passwordReset?: string; mobileVerified?: string }>;
 }) {
   const sp = await searchParams;
-  return <LoginForm passwordChanged={sp.passwordChanged === "1"} />;
+  return <LoginForm passwordChanged={sp.passwordChanged === "1"} passwordReset={sp.passwordReset === "1"} mobileVerified={sp.mobileVerified === "1"} />;
 }

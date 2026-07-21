@@ -27,6 +27,10 @@ The default local administrator is `mwood@digicolony.com` with the temporary
 password `change-me-now`. The dashboard requires that password to be changed
 immediately after the first successful sign-in.
 
+Invited users enter a mobile number while creating their account and must verify
+it with a six-digit SMS code before signing in. Password recovery sends a separate
+single-use code to that verified mobile number through the client gateway pool.
+
 Dashboard target: `https://sns.digicolony.net` through Cloudflare Tunnel, or `http://localhost:3000` during direct local development.
 
 ## Gateway Installer

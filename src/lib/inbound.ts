@@ -33,6 +33,7 @@ export async function ingestInboundSms(input: InboundSmsInput) {
          FROM messages
         WHERE to_number = $1
           AND organization_id = $3
+          AND COALESCE(metadata->>'systemType', '') NOT IN ('password_reset', 'mobile_verification')
           AND status = 'carrier_submitted'
           AND submitted_at IS NOT NULL
           AND submitted_at <= $2::timestamptz
@@ -142,7 +143,11 @@ export async function listInboundMessages(options: { organizationId?: string } =
 
 export async function getInboundMessage(id: string) {
   const result = await query(
-    `SELECT i.*, g.name AS gateway_name, m.id AS outbound_message_id, m.body AS outbound_body
+    `SELECT i.*, g.name AS gateway_name, m.id AS outbound_message_id,
+            CASE
+              WHEN COALESCE(m.metadata->>'systemType', '') IN ('password_reset', 'mobile_verification') THEN '[Security code hidden]'
+              ELSE m.body
+            END AS outbound_body
        FROM inbound_messages i
        LEFT JOIN gateways g ON g.id = i.gateway_id
        LEFT JOIN messages m ON m.id = i.matched_message_id

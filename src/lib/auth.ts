@@ -27,7 +27,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null;
 
         const result = await query<AdminUser & { password_hash: string }>(
-          "SELECT id, email, name, role, password_hash FROM admin_users WHERE email = $1",
+          `SELECT id, email, name, role, password_hash
+             FROM admin_users
+            WHERE email = $1
+              AND (mobile_number IS NULL OR mobile_number_verified_at IS NOT NULL)`,
           [parsed.data.email.toLowerCase()]
         );
         const user = result.rows[0];

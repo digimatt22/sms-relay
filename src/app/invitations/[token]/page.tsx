@@ -22,12 +22,17 @@ export default async function InvitationPage({
         {sp.error ? <p className="error">{sp.error}</p> : null}
         <input type="hidden" name="token" value={token} />
         <div className="field">
+          <label htmlFor="mobileNumber">Mobile number</label>
+          <input id="mobileNumber" name="mobileNumber" type="tel" required autoComplete="tel" placeholder="+1 555 123 4567" />
+          <span className="muted">Used to send one-time password reset codes.</span>
+        </div>
+        <div className="field">
           <label htmlFor="password">Password</label>
-          <input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" />
+          <input id="password" name="password" type="password" required minLength={12} autoComplete="new-password" />
         </div>
         <div className="field">
           <label htmlFor="confirmPassword">Confirm password</label>
-          <input id="confirmPassword" name="confirmPassword" type="password" required minLength={8} autoComplete="new-password" />
+          <input id="confirmPassword" name="confirmPassword" type="password" required minLength={12} autoComplete="new-password" />
         </div>
         <button className="primary" type="submit">Create account</button>
       </form>

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { query, transaction } from "@/lib/db";
 import { normalizeRole } from "@/lib/rbac";
+import { normalizePhoneNumber } from "@/lib/phone";
 import { createInvitationToken, hashInvitationToken, hashPassword } from "@/lib/security";
 
 export const DEFAULT_ORGANIZATION_ID = "00000000-0000-0000-0000-000000000001";
@@ -98,19 +99,27 @@ export async function createOrganization(input: { name: string; slug: string; us
 export async function createDashboardUser(input: {
   email: string;
   name?: string | null;
+  mobileNumber: string;
   password: string;
   role?: string;
 }) {
+  const mobileNumber = normalizePhoneNumber(input.mobileNumber);
   const result = await query(
-    `INSERT INTO admin_users (email, name, password_hash, role)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO admin_users (email, name, mobile_number, password_hash, role)
+     VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (email) DO UPDATE
        SET name = COALESCE(EXCLUDED.name, admin_users.name),
+           mobile_number_verified_at = CASE
+             WHEN admin_users.mobile_number IS DISTINCT FROM EXCLUDED.mobile_number THEN NULL
+             ELSE admin_users.mobile_number_verified_at
+           END,
+           mobile_number = EXCLUDED.mobile_number,
            updated_at = now()
-     RETURNING id, email, name, role`,
+     RETURNING id, email, name, mobile_number, role`,
     [
       input.email.toLowerCase(),
       input.name || null,
+      mobileNumber,
       hashPassword(input.password),
       normalizeRole(input.role || "viewer")
     ]
@@ -181,9 +190,11 @@ export async function listPendingUserInvitations(organizationIds: string[]) {
 
 export async function acceptUserInvitation(input: {
   token: string;
+  mobileNumber: string;
   password: string;
 }) {
   const tokenHash = hashInvitationToken(input.token);
+  const mobileNumber = normalizePhoneNumber(input.mobileNumber);
   return transaction(async (db) => {
     const invitationResult = await db.query(
       `SELECT *
@@ -198,10 +209,15 @@ export async function acceptUserInvitation(input: {
     if (!invitation) return null;
 
     const userResult = await db.query(
-      `INSERT INTO admin_users (email, name, password_hash, role, default_organization_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO admin_users (email, name, mobile_number, password_hash, role, default_organization_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (email) DO UPDATE
          SET name = COALESCE(EXCLUDED.name, admin_users.name),
+             mobile_number_verified_at = CASE
+               WHEN admin_users.mobile_number IS DISTINCT FROM EXCLUDED.mobile_number THEN NULL
+               ELSE admin_users.mobile_number_verified_at
+             END,
+             mobile_number = EXCLUDED.mobile_number,
              password_hash = EXCLUDED.password_hash,
              role = CASE
                WHEN admin_users.role = 'platform_admin' THEN admin_users.role
@@ -213,6 +229,7 @@ export async function acceptUserInvitation(input: {
       [
         invitation.email,
         invitation.name,
+        mobileNumber,
         hashPassword(input.password),
         normalizeRole(invitation.role),
         invitation.organization_id

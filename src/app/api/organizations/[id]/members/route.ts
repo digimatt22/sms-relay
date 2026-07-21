@@ -5,6 +5,7 @@ import {
   upsertOrganizationMembership
 } from "@/lib/organizations";
 import { requireRoleApi } from "@/lib/guards";
+import { requestMobileVerification } from "@/lib/mobile-verification";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const admin = await requireRoleApi("org_admin");
@@ -18,12 +19,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   if (!userId) {
     const password = String(body.password || "");
-    if (!email || !password) {
-      return NextResponse.json({ error: "email and password are required when userId is omitted" }, { status: 400 });
+    const mobileNumber = String(body.mobileNumber || "");
+    if (!email || !password || !mobileNumber) {
+      return NextResponse.json({ error: "email, mobileNumber, and password are required when userId is omitted" }, { status: 400 });
     }
     const user = await createDashboardUser({
       email,
       name: body.name ? String(body.name) : null,
+      mobileNumber,
       password,
       role
     });
@@ -31,6 +34,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
 
   const membership = await upsertOrganizationMembership({ organizationId, userId, role });
+  await requestMobileVerification(userId, organizationId);
   return NextResponse.json({ membership }, { status: 201 });
 }
 

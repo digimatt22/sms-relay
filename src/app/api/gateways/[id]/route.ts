@@ -29,7 +29,12 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
   );
   if (!gateway.rows[0]) return NextResponse.json({ error: "Gateway not found" }, { status: 404 });
   const attempts = await query(
-    `SELECT a.*, m.to_number_redacted, m.body, m.status AS message_status
+    `SELECT a.*, m.to_number_redacted,
+            CASE
+              WHEN COALESCE(m.metadata->>'systemType', '') IN ('password_reset', 'mobile_verification') THEN '[Security code hidden]'
+              ELSE m.body
+            END AS body,
+            m.status AS message_status
        FROM message_attempts a
        JOIN messages m ON m.id = a.message_id
       WHERE a.gateway_id = $1

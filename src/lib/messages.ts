@@ -5,6 +5,7 @@ import { DEFAULT_ORGANIZATION_ID, ensureDefaultGatewayPool } from "@/lib/organiz
 import { normalizePhoneNumber } from "@/lib/phone";
 import { redactPhone } from "@/lib/security";
 import type { MessageStatus } from "@/lib/types";
+import { redactSensitiveMessage } from "@/lib/sensitive-messages";
 
 export async function createMessage(input: {
   to: string;
@@ -192,7 +193,7 @@ export async function listMessages(status?: string | null, options: { organizati
       LIMIT 200`,
     values
   );
-  return result.rows;
+  return result.rows.map(redactSensitiveMessage);
 }
 
 export async function getMessage(id: string, options: { apiClientId?: string | null } = {}) {
@@ -219,7 +220,7 @@ export async function getMessage(id: string, options: { apiClientId?: string | n
       ORDER BY a.attempt_number`,
     [id]
   );
-  return { message: message.rows[0], attempts: attempts.rows };
+  return { message: message.rows[0] ? redactSensitiveMessage(message.rows[0]) : null, attempts: attempts.rows };
 }
 
 export async function claimNextMessage(gatewayId: string) {

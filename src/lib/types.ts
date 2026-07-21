@@ -15,6 +15,7 @@ export type AdminUser = {
   email: string;
   name: string | null;
   role: string;
+  mobile_number?: string | null;
 };
 
 export type GatewayAuth = {

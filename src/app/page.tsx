@@ -54,7 +54,12 @@ export default async function CommandCenterPage() {
       [organizationId]
     ),
     query(
-      `SELECT m.*, c.name AS api_client_name, g.name AS gateway_name
+      `SELECT m.*,
+              CASE
+                WHEN COALESCE(m.metadata->>'systemType', '') IN ('password_reset', 'mobile_verification') THEN '[Security code hidden]'
+                ELSE m.body
+              END AS body,
+              c.name AS api_client_name, g.name AS gateway_name
          FROM messages m
          LEFT JOIN api_clients c ON c.id = m.api_client_id
          LEFT JOIN gateways g ON g.id = m.claim_gateway_id
