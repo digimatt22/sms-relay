@@ -16,6 +16,13 @@ Base URL: `https://sns.digicolony.net`
 
 Verification establishes control of the mobile number. It is deliberately coupled to a recorded affirmative disclosure acceptance so that the code alone is not treated as consent.
 
+The DigiColony organization includes an active **DigiColony SNS System Notifications** program for account verification, security alerts, and requested platform testing. Client-specific production traffic should use a separately reviewed client messaging program.
+
+Recipients can enroll in either of two ways:
+
+- **Hosted:** give the recipient the full `https://sns.digicolony.net/consent/{programId}` URL shown in Recipient Consent. DigiColony collects the number, affirmative disclosure acceptance, and verification code.
+- **Embedded:** the client displays the active program's returned `disclosure_text` beside a separate unchecked control, then calls the authorization request and confirmation endpoints described below.
+
 ## SwimSense Pool Monitoring Example
 
 Create one organization-level messaging program for the service; do not create one per recipient.

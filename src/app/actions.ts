@@ -75,12 +75,17 @@ async function requireActionRole(minimumRole: Role) {
   return session;
 }
 
-async function requireAccountActionRole(minimumRole: Role) {
+async function requireAccountActionRole(minimumRole: Role, forbiddenPath = "/messages") {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (await mustChangePassword(session.user.id)) redirect("/change-password");
   const account = await getAccountContext(session);
-  if (!accountHasRole(account, minimumRole)) redirect("/messages");
+  if (!accountHasRole(account, minimumRole)) {
+    if (forbiddenPath !== "/messages") {
+      redirectWithMessage(forbiddenPath, "Client administrator access is required for this action");
+    }
+    redirect("/messages");
+  }
   return { session, account };
 }
 
@@ -484,7 +489,7 @@ export async function createMessageAction(formData: FormData) {
 }
 
 export async function createMessagingProgramAction(formData: FormData) {
-  const { session, account } = await requireAccountActionRole("org_admin");
+  const { session, account } = await requireAccountActionRole("org_admin", "/consent");
   const stringOrNull = (name: string) => String(formData.get(name) || "").trim() || null;
   const parsed = messagingProgramCreateSchema.safeParse({
     name: formData.get("name"),

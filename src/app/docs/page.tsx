@@ -155,6 +155,14 @@ Content-Type: application/json
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Authorize a Recipient</h2>
         <p className="muted">Ordinary messages require a verified authorization for an active messaging program. Use the hosted form or complete this client-embedded flow.</p>
+        <h3>Option A: DigiColony-hosted form</h3>
+        <ol>
+          <li>In <strong>Recipient Consent</strong>, copy the full hosted-form URL for an active program.</li>
+          <li>Send or link the recipient to that page. The recipient enters their mobile number and affirmatively accepts the approved disclosure.</li>
+          <li>DigiColony sends the verification SMS and confirms the code on the hosted page. No client callback is required.</li>
+        </ol>
+        <h3>Option B: client signup or account settings</h3>
+        <p>Use the program returned by <code>GET /api/messaging-programs</code>. Display its <code>disclosure_text</code> beside a separate unchecked control, and call the endpoints below only after the recipient selects it.</p>
         <CodeBlock>{`# 1. Start after the recipient accepts the approved disclosure
 curl -X POST ${baseUrl}/api/recipient-authorizations \
   -H "Authorization: Bearer rhc_your_api_key" \

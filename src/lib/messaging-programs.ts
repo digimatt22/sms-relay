@@ -154,8 +154,9 @@ export async function updateMessagingProgram(input: {
           SET status = COALESCE($3, status),
               public_enrollment_enabled = COALESCE($4, public_enrollment_enabled),
               updated_at = now()
-        WHERE id = $1
+      WHERE id = $1
           AND organization_id = $2
+          AND ($3::text IS NULL OR is_system = false)
         RETURNING *`,
       [input.programId, input.organizationId, input.status || null, input.publicEnrollmentEnabled ?? null]
     );

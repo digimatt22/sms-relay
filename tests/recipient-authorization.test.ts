@@ -66,3 +66,12 @@ test("migration creates authorization evidence, challenges, programs, and suppre
     assert.match(migration, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
   }
 });
+
+test("a default DigiColony system messaging program is seeded", () => {
+  const migration = readFileSync("migrations/015_default_system_messaging_program.sql", "utf8");
+  assert.match(migration, /DigiColony SNS System Notifications/);
+  assert.match(migration, /user_requested_transactional/);
+  assert.match(migration, /is_system/);
+  assert.match(migration, /status, public_enrollment_enabled/);
+  assert.match(migration, /'active', true/);
+});

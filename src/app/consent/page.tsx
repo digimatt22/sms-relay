@@ -10,12 +10,14 @@ import { accountHasRole, getAccountContext } from "@/lib/account-context";
 import { requireAdminPage } from "@/lib/page-auth";
 import { listMessagingPrograms } from "@/lib/messaging-programs";
 import { listRecipientAuthorizations } from "@/lib/recipient-authorizations";
+import { getPublicAppUrl } from "@/lib/branding";
 
 export default async function RecipientConsentPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const session = await requireAdminPage();
   const account = await getAccountContext(session);
   const params = await searchParams;
   const canManageConsent = accountHasRole(account, "org_admin");
+  const publicAppUrl = getPublicAppUrl();
   const [programs, authorizations] = await Promise.all([
     listMessagingPrograms({ organizationId: account.organizationId }),
     listRecipientAuthorizations({ organizationId: account.organizationId })
@@ -58,10 +60,19 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
           <tbody>
             {programs.map((program: any) => (
               <tr key={program.id}>
-                <td><strong>{program.name}</strong><div className="object-meta">{program.sender_display_name} · {program.purpose}</div></td>
+                <td>
+                  <strong>{program.name}</strong>{program.is_system ? <span className="chip good" style={{ marginLeft: 8 }}>System default</span> : null}
+                  <div className="object-meta">{program.sender_display_name} · {program.purpose}</div>
+                </td>
                 <td>{program.message_class.replace(/_/g, " ")}</td>
                 <td><span className={`status ${program.status === "active" ? "active" : "pending"}`}>{program.status.replace(/_/g, " ")}</span></td>
-                <td>{program.status === "active" ? <Link href={`/consent/${program.id}`} target="_blank">Open <ExternalLink size={13} /></Link> : "Available after approval"}</td>
+                <td>
+                  {program.status === "active" ? (
+                    <Link href={`/consent/${program.id}`} target="_blank">
+                      {publicAppUrl}/consent/{program.id} <ExternalLink size={13} />
+                    </Link>
+                  ) : "Available after approval"}
+                </td>
                 <td>
                   {account.isPlatformAdmin && program.status === "pending_approval" ? (
                     <form action={approveMessagingProgramAction}>
@@ -69,7 +80,7 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
                       <button className="ghost-button" type="submit"><CheckCircle2 size={15} /> Approve</button>
                     </form>
                   ) : null}
-                  {canManageConsent && program.status === "active" ? (
+                  {canManageConsent && program.status === "active" && !program.is_system ? (
                     <form action={disableMessagingProgramAction}>
                       <input type="hidden" name="programId" value={program.id} />
                       <button className="ghost-button" type="submit">Disable</button>
@@ -81,6 +92,20 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
             {!programs.length ? <tr><td colSpan={5}>No messaging programs yet.</td></tr> : null}
           </tbody>
         </table>
+      </section>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>How recipients opt in</h2>
+        <div className="grid">
+          <div>
+            <h3>DigiColony-hosted page</h3>
+            <p>Open an active program’s hosted-form link above and give that full URL to the recipient. They enter their mobile number, accept the program disclosure, and verify the six-digit code sent by SMS.</p>
+          </div>
+          <div>
+            <h3>Client website or app</h3>
+            <p>The client displays the approved disclosure beside a separate unchecked opt-in control, then starts and confirms authorization through the Recipient Authorization API. See <Link href="/docs">API Docs</Link> for the request sequence.</p>
+          </div>
+        </div>
       </section>
 
       {canManageConsent ? (
