@@ -49,6 +49,7 @@ test("ordinary messages are blocked at create, claim, and attempt boundaries", (
   assert.match(messages, /message_category = 'ordinary'/);
   assert.match(messages, /platform_suppressions/);
   assert.match(messages, /required_gateway_id/);
+  assert.doesNotMatch(messages, /recipient_authorizations authorization/);
 });
 
 test("migration creates authorization evidence, challenges, programs, and suppression", () => {

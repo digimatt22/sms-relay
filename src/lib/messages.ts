@@ -365,13 +365,13 @@ export async function claimNextMessage(gatewayId: string) {
                 AND recipient_authorization_id IS NOT NULL
                 AND EXISTS (
                   SELECT 1
-                    FROM recipient_authorizations authorization
-                    JOIN messaging_programs program ON program.id = authorization.messaging_program_id
-                   WHERE authorization.id = messages.recipient_authorization_id
-                     AND authorization.organization_id = messages.organization_id
-                     AND authorization.messaging_program_id = messages.messaging_program_id
-                     AND authorization.phone_number = messages.to_number
-                     AND authorization.status = 'verified_authorized'
+                    FROM recipient_authorizations authz
+                    JOIN messaging_programs program ON program.id = authz.messaging_program_id
+                   WHERE authz.id = messages.recipient_authorization_id
+                     AND authz.organization_id = messages.organization_id
+                     AND authz.messaging_program_id = messages.messaging_program_id
+                     AND authz.phone_number = messages.to_number
+                     AND authz.status = 'verified_authorized'
                      AND program.status = 'active'
                 )
                 AND NOT EXISTS (
@@ -446,13 +446,13 @@ export async function startAttempt(messageId: string, gatewayId: string) {
               AND recipient_authorization_id IS NOT NULL
               AND EXISTS (
                 SELECT 1
-                  FROM recipient_authorizations authorization
-                  JOIN messaging_programs program ON program.id = authorization.messaging_program_id
-                 WHERE authorization.id = messages.recipient_authorization_id
-                   AND authorization.organization_id = messages.organization_id
-                   AND authorization.messaging_program_id = messages.messaging_program_id
-                   AND authorization.phone_number = messages.to_number
-                   AND authorization.status = 'verified_authorized'
+                  FROM recipient_authorizations authz
+                  JOIN messaging_programs program ON program.id = authz.messaging_program_id
+                 WHERE authz.id = messages.recipient_authorization_id
+                   AND authz.organization_id = messages.organization_id
+                   AND authz.messaging_program_id = messages.messaging_program_id
+                   AND authz.phone_number = messages.to_number
+                   AND authz.status = 'verified_authorized'
                    AND program.status = 'active'
               )
               AND NOT EXISTS (
