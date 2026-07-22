@@ -691,6 +691,21 @@ nav a:hover,
   font-size: 13px;
 }
 
+.clickable-table-row {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.clickable-table-row:hover,
+.clickable-table-row:focus-visible {
+  background: #f1f5f9;
+  outline: none;
+}
+
+.clickable-table-row:focus-visible {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .status {
   display: inline-flex;
   border-radius: 999px;

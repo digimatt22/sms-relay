@@ -4,7 +4,7 @@ import { requireAdminPage } from "@/lib/page-auth";
 import { listMessages } from "@/lib/messages";
 import { humanize } from "@/lib/format";
 import { getCurrentOrganizationId } from "@/lib/organizations";
-import { hasRole } from "@/lib/rbac";
+import { ClickableMessageRow } from "@/app/messages/clickable-message-row";
 
 export default async function MessagesPage({
   searchParams
@@ -15,7 +15,6 @@ export default async function MessagesPage({
   const params = await searchParams;
   const organizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
   const messages = sortMessages(await listMessages(params.status, { organizationId }), params.sort, params.direction);
-  const canOperate = hasRole(session, "operator");
   const filterStatuses = [
     ["", "All"],
     ["queued", "Queued"],
@@ -47,10 +46,7 @@ export default async function MessagesPage({
               </Link>
             ))}
           </div>
-          <span className="muted">
-            {messages.length} message(s)
-            {canOperate ? " - open a row to requeue or cancel" : ""}
-          </span>
+          <span className="muted">{messages.length} message(s)</span>
         </div>
       </section>
 
@@ -69,15 +65,19 @@ export default async function MessagesPage({
           </thead>
           <tbody>
             {messages.map((message: any) => (
-              <tr key={message.id}>
+              <ClickableMessageRow
+                href={`/messages/${message.id}`}
+                key={message.id}
+                label={`Open message to ${message.to_number_redacted}`}
+              >
                 <td><span className={`status ${message.status}`}>{humanize(message.status)}</span></td>
-                <td><Link href={`/messages/${message.id}`}>{message.to_number_redacted}</Link></td>
+                <td>{message.to_number_redacted}</td>
                 <td>{message.body}</td>
                 <td>{message.api_client_name || humanize(message.submitted_via || "dashboard")}</td>
                 <td>{message.gateway_name || "-"}</td>
                 <td>{message.attempt_count}</td>
                 <td>{new Date(message.created_at).toLocaleString()}</td>
-              </tr>
+              </ClickableMessageRow>
             ))}
             {!messages.length ? (
               <tr><td colSpan={7}>No messages yet.</td></tr>

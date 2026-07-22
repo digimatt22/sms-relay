@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 
 test("dashboard mutation surfaces are gated by role", () => {
   const newMessagePage = readFileSync("src/app/messages/new/page.tsx", "utf8");
-  const messagesPage = readFileSync("src/app/messages/page.tsx", "utf8");
   const messageDetailPage = readFileSync("src/app/messages/[id]/page.tsx", "utf8");
   const gatewaysPage = readFileSync("src/app/gateways/page.tsx", "utf8");
   const gatewayDetailPage = readFileSync("src/app/gateways/[id]/page.tsx", "utf8");
@@ -13,7 +12,6 @@ test("dashboard mutation surfaces are gated by role", () => {
   const routingPage = readFileSync("src/app/routing/page.tsx", "utf8");
 
   assert.match(newMessagePage, /requireRolePage\("operator"\)/);
-  assert.match(messagesPage, /hasRole\(session, "operator"\)/);
   assert.match(messageDetailPage, /hasRole\(session, "operator"\)/);
   assert.match(gatewayDetailPage, /accountHasRole\(account, "operator"\)/);
   assert.match(gatewayDetailPage, /hasGatewayAccessLevel\(accessLevel, "manage"\)/);
