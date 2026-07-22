@@ -131,7 +131,7 @@ nav a,
   padding: 10px 12px;
 }
 
-.sidebar nav a {
+.sidebar .nav-link {
   display: flex;
   align-items: center;
   gap: 10px;
