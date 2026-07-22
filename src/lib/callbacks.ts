@@ -1,4 +1,5 @@
 import { query, transaction } from "@/lib/db";
+import { randomUUID } from "node:crypto";
 import { createWebhookRequest } from "@/lib/webhooks";
 
 type CallbackDelivery = {
@@ -7,6 +8,36 @@ type CallbackDelivery = {
   payload: unknown;
   attempt_count: number;
 };
+
+export async function enqueueCallbackDelivery(input: {
+  organizationId: string;
+  eventType: string;
+  callbackUrl?: string | null;
+  payload: Record<string, unknown>;
+  messageId?: string | null;
+  inboundMessageId?: string | null;
+  recipientAuthorizationId?: string | null;
+}) {
+  if (!input.callbackUrl) return null;
+  const result = await query<{ id: string }>(
+    `INSERT INTO callback_deliveries (
+       organization_id, message_id, inbound_message_id, recipient_authorization_id,
+       event_type, callback_url, payload
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+     RETURNING id`,
+    [
+      input.organizationId,
+      input.messageId || null,
+      input.inboundMessageId || null,
+      input.recipientAuthorizationId || null,
+      input.eventType,
+      input.callbackUrl,
+      JSON.stringify({ eventId: input.payload.eventId || randomUUID(), ...input.payload })
+    ]
+  );
+  return result.rows[0] || null;
+}
 
 export async function processPendingCallbackDeliveries(limit = 25) {
   const deliveries = await transaction(async (client) => {

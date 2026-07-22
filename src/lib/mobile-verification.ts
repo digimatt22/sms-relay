@@ -61,12 +61,13 @@ export async function requestMobileVerification(userId: string, organizationId: 
       priority: 10,
       metadata: {
         systemType: "mobile_verification",
-        allowOptOutOverride: true,
         mobileVerificationId: verification.id
       },
       organizationId,
       userId,
-      submittedVia: "dashboard"
+      submittedVia: "dashboard",
+      messageCategory: "security",
+      authorizationExempt: true
     });
     await query("UPDATE mobile_verification_codes SET message_id = $1 WHERE id = $2", [message.id, verification.id]);
   } catch {

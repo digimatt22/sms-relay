@@ -3,6 +3,9 @@ import { query, transaction } from "@/lib/db";
 import { recordMessageEventInTransaction } from "@/lib/message-events";
 import { redactPhone } from "@/lib/security";
 import { createWebhookRequest } from "@/lib/webhooks";
+import { normalizePhoneNumber } from "@/lib/phone";
+import { createMessage } from "@/lib/messages";
+import { createPlatformSuppression, recordClientOptOut, recordClientStart } from "@/lib/recipient-authorizations";
 
 export type InboundSmsInput = {
   gatewayId: string;
@@ -16,35 +19,47 @@ export type InboundSmsInput = {
 };
 
 export async function ingestInboundSms(input: InboundSmsInput) {
-  const inbound = await transaction(async (client: pg.PoolClient) => {
+  const from = normalizePhoneNumber(input.from);
+  const result = await transaction(async (client: pg.PoolClient) => {
     const gateway = await client.query(
       `SELECT organization_id
          FROM gateways
         WHERE id = $1`,
       [input.gatewayId]
     );
-    const organizationId = gateway.rows[0]?.organization_id;
-    if (!organizationId) {
+    const gatewayOrganizationId = gateway.rows[0]?.organization_id;
+    if (!gatewayOrganizationId) {
       throw new Error("Inbound gateway is not registered");
     }
 
-    const match = await client.query(
-      `SELECT id, callback_url
-         FROM messages
-        WHERE to_number = $1
-          AND organization_id = $3
-          AND COALESCE(metadata->>'systemType', '') NOT IN ('password_reset', 'mobile_verification')
-          AND status = 'carrier_submitted'
-          AND submitted_at IS NOT NULL
-          AND submitted_at <= $2::timestamptz
-          AND submitted_at >= $2::timestamptz - interval '7 days'
-        ORDER BY submitted_at DESC
-        LIMIT 1`,
-      [input.from, input.receivedAt, organizationId]
+    const candidatesResult = await client.query(
+      `SELECT DISTINCT ON (m.id)
+              m.id, m.organization_id, m.callback_url, m.messaging_program_id,
+              m.recipient_authorization_id, m.submitted_at,
+              p.sender_display_name, p.help_contact
+         FROM messages m
+         JOIN message_attempts a ON a.message_id = m.id
+         LEFT JOIN messaging_programs p ON p.id = m.messaging_program_id
+        WHERE m.to_number = $1
+          AND a.gateway_id = $3
+          AND a.status = 'carrier_submitted'
+          AND COALESCE(m.metadata->>'systemType', '') NOT IN ('password_reset', 'mobile_verification')
+          AND m.status = 'carrier_submitted'
+          AND m.submitted_at IS NOT NULL
+          AND m.submitted_at <= $2::timestamptz
+          AND m.submitted_at >= $2::timestamptz - interval '7 days'
+        ORDER BY m.id, m.submitted_at DESC`,
+      [from, input.receivedAt, input.gatewayId]
     );
-    const matched = match.rows[0] || null;
+    const candidates = candidatesResult.rows.sort(
+      (a: any, b: any) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
+    );
+    const candidateOrganizations = new Set(candidates.map((candidate: any) => candidate.organization_id));
+    const ambiguous = candidateOrganizations.size > 1;
+    const matched = !ambiguous ? candidates[0] || null : null;
+    const organizationId = matched?.organization_id || gatewayOrganizationId;
 
-    const result = await client.query(
+    const inboundResult = await client.query(
       `INSERT INTO inbound_messages (
          organization_id, gateway_id, from_number, from_number_redacted, body, received_at,
          modem_index, message_status, service_center, matched_message_id,
@@ -57,12 +72,12 @@ export async function ingestInboundSms(input: InboundSmsInput) {
          encode(digest($2::text || '|' || $3 || '|' || $5 || '|' || $6, 'sha256'), 'hex')
        )
        ON CONFLICT (fingerprint) DO UPDATE SET updated_at = inbound_messages.updated_at
-       RETURNING *`,
+       RETURNING inbound_messages.*, (xmax = 0) AS was_created`,
       [
         organizationId,
         input.gatewayId,
-        input.from,
-        redactPhone(input.from),
+        from,
+        redactPhone(from),
         input.body,
         input.receivedAt,
         input.modemIndex ?? null,
@@ -71,54 +86,134 @@ export async function ingestInboundSms(input: InboundSmsInput) {
         matched?.id || null,
         matched?.callback_url || null,
         matched?.callback_url ? "pending" : "not_configured",
-        JSON.stringify(input.metadata || {})
+        JSON.stringify({
+          ...(input.metadata || {}),
+          attributionAmbiguous: ambiguous,
+          candidateOrganizationCount: candidateOrganizations.size
+        })
       ]
     );
-    const created = result.rows[0];
+    const created = inboundResult.rows[0];
 
-    await recordMessageEventInTransaction(client, {
-      organizationId,
-      messageId: created.matched_message_id || null,
-      eventType: "sms.inbound.received",
-      actorType: "gateway",
-      actorId: input.gatewayId,
-      details: {
-        inboundMessageId: created.id,
-        fromRedacted: created.from_number_redacted,
-        matchedMessageId: created.matched_message_id || null
-      }
-    });
-
-    if (isOptOutReply(input.body)) {
-      await client.query(
-        `INSERT INTO opt_outs (organization_id, phone_number, phone_number_redacted, source)
-         VALUES ($1, $2, $3, 'inbound')
-         ON CONFLICT (organization_id, phone_number) DO UPDATE
-           SET status = 'active', updated_at = now()`,
-        [organizationId, input.from, redactPhone(input.from)]
-      );
+    if (created.was_created) {
       await recordMessageEventInTransaction(client, {
         organizationId,
         messageId: created.matched_message_id || null,
-        eventType: "sms.opt_out.recorded",
-        actorType: "system",
-        details: { inboundMessageId: created.id, fromRedacted: created.from_number_redacted }
+        eventType: "sms.inbound.received",
+        actorType: "gateway",
+        actorId: input.gatewayId,
+        details: {
+          inboundMessageId: created.id,
+          fromRedacted: created.from_number_redacted,
+          matchedMessageId: created.matched_message_id || null
+        }
       });
     }
 
-    return created;
+    return { inbound: created, matched, ambiguous, gatewayOrganizationId };
   });
 
-  if (inbound.callback_url && inbound.callback_status === "pending") {
-    return dispatchInboundCallback(inbound.id);
+  const command = classifyConsentCommand(input.body);
+  if (result.inbound.was_created && command === "stop") {
+    if (result.matched) {
+      await recordClientOptOut({
+        organizationId: result.matched.organization_id,
+        phoneNumber: from,
+        reasonCode: "inbound_stop",
+        source: "inbound",
+        actorType: "recipient",
+        gatewayId: input.gatewayId,
+        inboundMessageId: result.inbound.id,
+        matchedMessageId: result.matched.id
+      });
+    } else {
+      await createPlatformSuppression({
+        phoneNumber: from,
+        source: "inbound",
+        reasonCode: result.ambiguous ? "ambiguous_stop" : "unmatched_stop",
+        gatewayId: input.gatewayId,
+        inboundMessageId: result.inbound.id
+      });
+    }
+    await enqueueConsentResponse({
+      organizationId: result.matched?.organization_id || result.gatewayOrganizationId,
+      gatewayId: input.gatewayId,
+      phoneNumber: from,
+      body: result.matched?.sender_display_name
+        ? `${result.matched.sender_display_name}: You are opted out. No further messages will be sent. Reply START to request messages again.`
+        : "You are opted out. No further messages will be sent. Contact the sender to request messages again.",
+      matched: result.matched
+    });
+  } else if (result.inbound.was_created && command === "start" && result.matched?.messaging_program_id) {
+    const authorization = await recordClientStart({
+      organizationId: result.matched.organization_id,
+      programId: result.matched.messaging_program_id,
+      phoneNumber: from,
+      gatewayId: input.gatewayId,
+      inboundMessageId: result.inbound.id,
+      matchedMessageId: result.matched.id
+    });
+    await enqueueConsentResponse({
+      organizationId: result.matched.organization_id,
+      gatewayId: input.gatewayId,
+      phoneNumber: from,
+      body: authorization
+        ? `${result.matched.sender_display_name}: You are subscribed again. Reply STOP to opt out.`
+        : `${result.matched.sender_display_name}: We could not restore authorization. Please use the sender's consent form.`,
+      matched: result.matched
+    });
+  } else if (result.inbound.was_created && command === "help" && result.matched) {
+    await enqueueConsentResponse({
+      organizationId: result.matched.organization_id,
+      gatewayId: input.gatewayId,
+      phoneNumber: from,
+      body: `${result.matched.sender_display_name || "Message sender"}: Help ${result.matched.help_contact || "is available from the sender"}. Reply STOP to opt out.`,
+      matched: result.matched
+    });
   }
 
-  return inbound;
+  if (result.inbound.callback_url && result.inbound.callback_status === "pending") {
+    return dispatchInboundCallback(result.inbound.id);
+  }
+
+  return result.inbound;
 }
 
-function isOptOutReply(body: string) {
-  const normalized = body.trim().toUpperCase();
-  return ["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"].includes(normalized);
+export function classifyConsentCommand(body: string): "stop" | "start" | "help" | null {
+  const normalized = body.trim().toUpperCase().replace(/[.!]+$/g, "").replace(/\s+/g, " ");
+  if (["STOP", "STOP ALL", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "REVOKE", "OPT OUT"].includes(normalized)) {
+    return "stop";
+  }
+  if (/^(PLEASE )?(STOP|END) (TEXTING|MESSAGING|SENDING MESSAGES)( ME)?$/.test(normalized)) return "stop";
+  if (["START", "UNSTOP", "SUBSCRIBE"].includes(normalized)) return "start";
+  if (["HELP", "INFO"].includes(normalized)) return "help";
+  return null;
+}
+
+async function enqueueConsentResponse(input: {
+  organizationId: string;
+  gatewayId: string;
+  phoneNumber: string;
+  body: string;
+  matched?: any;
+}) {
+  try {
+    await createMessage({
+      to: input.phoneNumber,
+      body: input.body,
+      priority: 1,
+      metadata: { systemType: "consent_response" },
+      organizationId: input.organizationId,
+      submittedVia: "dashboard",
+      messagingProgramId: input.matched?.messaging_program_id || null,
+      recipientAuthorizationId: input.matched?.recipient_authorization_id || null,
+      messageCategory: "opt_out_confirmation",
+      authorizationExempt: true,
+      requiredGatewayId: input.gatewayId
+    });
+  } catch {
+    // The suppression remains effective even when its one-time confirmation cannot be queued.
+  }
 }
 
 export async function listInboundMessages(options: { organizationId?: string } = {}) {

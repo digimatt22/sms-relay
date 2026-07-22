@@ -16,11 +16,47 @@ const phoneNumberSchema = z.string().min(1).transform((value, context) => {
 export const messageCreateSchema = z.object({
   to: phoneNumberSchema,
   body: z.string().min(1).max(1600),
+  programId: z.string().uuid(),
+  recipientAuthorizationId: z.string().uuid().optional().nullable(),
   priority: z.coerce.number().int().min(0).max(1000).default(100),
   scheduledAt: z.string().datetime().optional().nullable(),
   idempotencyKey: z.string().min(1).max(200).optional().nullable(),
   metadata: z.record(z.unknown()).default({}),
   callbackUrl: z.string().url().optional().nullable()
+});
+
+export const recipientAuthorizationRequestSchema = z.object({
+  programId: z.string().uuid(),
+  phoneNumber: phoneNumberSchema,
+  clientRecipientReference: z.string().max(200).optional().nullable(),
+  consentSource: z.enum(["client_form", "hosted"]).default("client_form"),
+  recipientInitiated: z.literal(true),
+  evidenceReference: z.string().max(500).optional().nullable(),
+  idempotencyKey: z.string().min(1).max(200).optional().nullable(),
+  callbackUrl: z.string().url().optional().nullable()
+});
+
+export const recipientAuthorizationConfirmSchema = z.object({
+  code: z.string().regex(/^\d{6}$/)
+});
+
+export const messagingProgramCreateSchema = z.object({
+  name: z.string().min(1).max(120),
+  senderDisplayName: z.string().min(1).max(120),
+  messageClass: z.enum(["marketing", "informational_recurring", "user_requested_transactional"]),
+  purpose: z.string().min(1).max(500),
+  expectedFrequency: z.string().min(1).max(160),
+  helpContact: z.string().min(1).max(200),
+  termsUrl: z.string().url().optional().nullable(),
+  privacyUrl: z.string().url().optional().nullable(),
+  callbackUrl: z.string().url().optional().nullable()
+});
+
+export const messagingProgramUpdateSchema = z.object({
+  status: z.literal("disabled").optional(),
+  publicEnrollmentEnabled: z.boolean().optional()
+}).refine((value) => value.status !== undefined || value.publicEnrollmentEnabled !== undefined, {
+  message: "At least one program setting is required"
 });
 
 export const gatewayCreateSchema = z.object({

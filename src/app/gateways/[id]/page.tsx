@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Activity, Download, Power, RadioTower, RotateCcw, Save, Wrench } from "lucide-react";
 import { requireAdminPage } from "@/lib/page-auth";
 import { query } from "@/lib/db";
@@ -54,7 +55,7 @@ export default async function GatewayDetailPage({
     <>
       <header className="page-header">
         <div>
-          <p className="muted"><a href="/gateways">Back to Gateways</a></p>
+          <p className="muted"><Link href="/gateways">Back to Gateways</Link></p>
           <h1>{gateway.rows[0].name}</h1>
           <p>{gatewayHardwareLabel(gateway.rows[0].hardware_type)} · SIM7070G · {gatewayCarrierLabel(gateway.rows[0].carrier)}</p>
         </div>

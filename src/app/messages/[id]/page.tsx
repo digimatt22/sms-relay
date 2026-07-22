@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Ban, Download, MessageCircleReply, RotateCcw, Send } from "lucide-react";
 import { requireAdminPage } from "@/lib/page-auth";
 import { getMessage } from "@/lib/messages";
@@ -40,7 +41,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
     <>
       <header className="page-header">
         <div>
-          <p className="muted"><a href="/messages">Back to Messages</a></p>
+          <p className="muted"><Link href="/messages">Back to Messages</Link></p>
           <h1>Message {message.id}</h1>
           <p>Created {new Date(message.created_at).toLocaleString()} · Source: {message.api_client_name || humanize(message.submitted_via || "dashboard")}</p>
         </div>

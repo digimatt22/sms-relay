@@ -1,8 +1,21 @@
 # Recipient Authorization, Verification, and Opt-Out Plan
 
-Status: Proposed for product and legal approval  
-Date: 2026-07-21  
+Status: Implemented launch baseline; legal copy and production policy still require counsel approval
+Date: 2026-07-21
 Target: DigiColony SNS
+
+## Launch Decisions (Approved Product Baseline)
+
+- DigiColony SNS is replacing AWS SNS for a small, explicitly approved set of known clients.
+- Ordinary client messages are denied unless the recipient has completed double opt-in for an active messaging program.
+- Clients can embed the authorization API in their own forms; DigiColony also hosts a public consent form for workflows without a client signup surface.
+- Existing/cold-list consent import is not exposed at launch. Recipients must enter through the hosted or client-embedded flow.
+- A messaging program created by an organization administrator remains pending until a platform administrator approves it.
+- STOP is client-wide across every program, gateway, SIM, and API key belonging to that client. It is never gateway-scoped.
+- An unattributable or cross-client-ambiguous STOP creates a platform-wide suppression for the number. Only a reviewed administrative process may resolve that failsafe.
+- START reactivates only the uniquely attributable client and program. Broad replies such as `YES` do not reactivate authorization.
+- Verification, security, and the one required opt-out confirmation use server-controlled exceptions. Clients cannot request or encode an authorization bypass.
+- Approved verification copy is generated and versioned by DigiColony; clients may configure only the sender identity, program purpose, expected frequency, and help/contact fields.
 
 ## Purpose
 
@@ -36,7 +49,7 @@ Primary references:
 - Consent must be associated with the represented client/sender and the disclosed messaging purpose.
 - Gateway/SIM selection is a transport decision and must not change authorization or suppression scope.
 - SMS replies do not contain an identifier for the outbound message being answered. Shared sender numbers can therefore make client attribution ambiguous.
-- The current system blocks an active organization-scoped opt-out when a message is created, but does not yet provide the complete authorization state machine described here.
+- The `opt-in` implementation provides the authorization state machine, client-wide suppression, ambiguous STOP failsafe, and repeated send-boundary enforcement described here.
 
 ## Recommended Decisions
 
@@ -159,7 +172,7 @@ All writes require an API key belonging to the active organization. Use idempote
 - `GET /api/messaging-programs`
 - `GET /api/messaging-programs/{id}`
 - `PATCH /api/messaging-programs/{id}`
-- `POST /api/messaging-programs/{id}/submit-for-approval`
+- `POST /api/messaging-programs/{id}/approve` (platform administrator)
 
 Program fields include sender identity, class, purpose, consent/disclosure version, approved template version, help contact, terms/privacy URLs, status, and callback configuration.
 

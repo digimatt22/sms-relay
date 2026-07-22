@@ -22,11 +22,13 @@ test("phone normalization rejects unfixable formats", () => {
 });
 
 test("message create schema normalizes valid phone and rejects invalid phone", () => {
+  const programId = "11111111-1111-4111-8111-111111111111";
   const valid = messageCreateSchema.safeParse({
     to: "(555) 123-4567",
     body: "hello",
     priority: 100,
-    metadata: {}
+    metadata: {},
+    programId
   });
   assert.equal(valid.success, true);
   if (valid.success) {
@@ -37,7 +39,8 @@ test("message create schema normalizes valid phone and rejects invalid phone", (
     to: "+1 555 123 4567 ext 2",
     body: "hello",
     priority: 100,
-    metadata: {}
+    metadata: {},
+    programId
   });
   assert.equal(invalid.success, false);
   if (!invalid.success) {

@@ -29,15 +29,24 @@ export async function POST(request: NextRequest) {
       userId: "error" in admin ? null : admin.session.user.id,
       apiClientId: client && !("error" in client) ? client.client.id : null,
       submittedVia: client && !("error" in client) ? "api" : "dashboard",
+      messagingProgramId: parsed.data.programId,
+      recipientAuthorizationId: parsed.data.recipientAuthorizationId || null,
+      messageCategory: "ordinary",
       organizationId: "error" in admin
         ? client && !("error" in client) ? client.client.organization_id : undefined
         : await getCurrentOrganizationId({ userId: admin.session.user.id, role: admin.session.user.role })
     });
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Message could not be created";
+    const status = message === "recipient_authorization_required" || message === "recipient_opted_out" || message === "recipient_platform_suppressed"
+      ? 403
+      : message === "program_not_active" || message === "recipient_verification_pending"
+        ? 409
+        : 400;
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Message could not be created" },
-      { status: 400 }
+      { error: message },
+      { status }
     );
   }
 }

@@ -25,3 +25,12 @@ test("backup and deployment runbook documents migration, backup, restore, and ap
   assert.match(deployCheck, /npm run typecheck/);
   assert.match(deployCheck, /npm run gateway:package/);
 });
+
+test("recipient authorization integration guide documents enrollment, enforcement, and STOP", () => {
+  const guide = readFileSync("docs/dpaf/25-recipient-authorization-integration-guide.md", "utf8");
+  assert.match(guide, /POST \/api\/recipient-authorizations/);
+  assert.match(guide, /recipientInitiated/);
+  assert.match(guide, /POST \/api\/messages/);
+  assert.match(guide, /STOP (reply revokes the client-wide|suppresses all ordinary messages from that client)/);
+  assert.match(guide, /platform-wide failsafe/);
+});

@@ -1,8 +1,12 @@
 import { requireRolePage } from "@/lib/page-auth";
 import { createMessageAction } from "@/app/actions";
+import { getAccountContext } from "@/lib/account-context";
+import { listMessagingPrograms } from "@/lib/messaging-programs";
 
 export default async function NewMessagePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  await requireRolePage("operator");
+  const session = await requireRolePage("operator");
+  const account = await getAccountContext(session);
+  const programs = await listMessagingPrograms({ organizationId: account.organizationId, activeOnly: true });
   const params = await searchParams;
 
   return (
@@ -16,6 +20,14 @@ export default async function NewMessagePage({ searchParams }: { searchParams: P
       <section className="panel">
         {params.error ? <div className="notice error">{params.error}</div> : null}
         <form className="form" action={createMessageAction}>
+          <div className="field">
+            <label htmlFor="programId">Messaging Program</label>
+            <small className="field-help">The recipient must be verified and authorized for this program.</small>
+            <select id="programId" name="programId" required defaultValue="">
+              <option value="" disabled>Select a program</option>
+              {programs.map((program: any) => <option key={program.id} value={program.id}>{program.name}</option>)}
+            </select>
+          </div>
           <div className="field">
             <label htmlFor="to">To</label>
             <input

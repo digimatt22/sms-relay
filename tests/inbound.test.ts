@@ -8,4 +8,9 @@ test("inbound matching links to recent carrier-submitted outbound without requir
   assert.match(source, /submitted_at <= \$2::timestamptz/);
   assert.match(source, /interval '7 days'/);
   assert.doesNotMatch(source, /AND callback_url IS NOT NULL/);
+  assert.match(source, /candidateOrganizations\.size > 1/);
+  assert.match(source, /createPlatformSuppression/);
+  assert.match(source, /recordClientOptOut/);
+  assert.match(source, /requiredGatewayId: input\.gatewayId/);
+  assert.match(source, /was_created/);
 });

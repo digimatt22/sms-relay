@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { signIn, signOut, auth } from "@/lib/auth";
 import { cancelMessage, createMessage, requeueMessage } from "@/lib/messages";
-import { messageCreateSchema, gatewayCreateSchema, gatewayUpdateSchema, apiClientCreateSchema } from "@/lib/validation";
+import {
+  messageCreateSchema,
+  gatewayCreateSchema,
+  gatewayUpdateSchema,
+  apiClientCreateSchema,
+  messagingProgramCreateSchema
+} from "@/lib/validation";
 import { SUPPORTED_GATEWAY_CARRIERS, SUPPORTED_GATEWAY_HARDWARE } from "@/lib/gateway-options";
 import { createGatewayKey, gatewayKeyPrefix, hashGatewayKey, hashPassword, verifyPassword } from "@/lib/security";
 import { query, transaction } from "@/lib/db";
@@ -40,6 +46,12 @@ import { getGatewayAccessLevel, hasGatewayAccessLevel } from "@/lib/gateway-acce
 import { normalizePhoneNumber } from "@/lib/phone";
 import { requestPasswordReset, resetPasswordWithCode } from "@/lib/password-resets";
 import { requestMobileVerification, requestMobileVerificationForEmail, verifyMobileCode } from "@/lib/mobile-verification";
+import { approveMessagingProgram, createMessagingProgram, getMessagingProgram, updateMessagingProgram } from "@/lib/messaging-programs";
+import {
+  confirmRecipientAuthorization,
+  requestRecipientAuthorization,
+  revokeRecipientAuthorization
+} from "@/lib/recipient-authorizations";
 
 function redirectWithMessage(path: string, message: string): never {
   const separator = path.includes("?") ? "&" : "?";
@@ -438,6 +450,7 @@ export async function createMessageAction(formData: FormData) {
   const parsed = messageCreateSchema.safeParse({
     to: formData.get("to"),
     body: formData.get("body"),
+    programId: formData.get("programId"),
     priority: formData.get("priority") || 100,
     scheduledAt,
     idempotencyKey: String(formData.get("idempotencyKey") || "") || null,
@@ -459,12 +472,129 @@ export async function createMessageAction(formData: FormData) {
     message = await createMessage({
       ...parsed.data,
       userId: session.user.id,
-      organizationId
+      organizationId,
+      messagingProgramId: parsed.data.programId,
+      recipientAuthorizationId: parsed.data.recipientAuthorizationId || null,
+      messageCategory: "ordinary"
     });
   } catch (error) {
     redirectWithMessage("/messages/new", error instanceof Error ? error.message : "Message could not be created");
   }
   redirect(`/messages/${message.id}`);
+}
+
+export async function createMessagingProgramAction(formData: FormData) {
+  const { session, account } = await requireAccountActionRole("org_admin");
+  const stringOrNull = (name: string) => String(formData.get(name) || "").trim() || null;
+  const parsed = messagingProgramCreateSchema.safeParse({
+    name: formData.get("name"),
+    senderDisplayName: formData.get("senderDisplayName"),
+    messageClass: formData.get("messageClass"),
+    purpose: formData.get("purpose"),
+    expectedFrequency: formData.get("expectedFrequency"),
+    helpContact: formData.get("helpContact"),
+    termsUrl: stringOrNull("termsUrl"),
+    privacyUrl: stringOrNull("privacyUrl"),
+    callbackUrl: stringOrNull("callbackUrl")
+  });
+  if (!parsed.success) {
+    redirectWithMessage("/consent", parsed.error.issues[0]?.message || "Messaging program input is invalid");
+  }
+  try {
+    await createMessagingProgram({
+      organizationId: account.organizationId,
+      ...parsed.data,
+      createdByUserId: session.user.id,
+      activate: account.isPlatformAdmin
+    });
+  } catch (error) {
+    redirectWithMessage("/consent", error instanceof Error ? error.message : "Messaging program could not be created");
+  }
+  revalidatePath("/consent");
+  redirect("/consent");
+}
+
+export async function approveMessagingProgramAction(formData: FormData) {
+  const { session, account } = await requireAccountActionRole("platform_admin");
+  if (!account.isPlatformAdmin) redirect("/consent");
+  const programId = String(formData.get("programId") || "");
+  if (programId) await approveMessagingProgram({ programId, approvedByUserId: session.user.id });
+  revalidatePath("/consent");
+  redirect("/consent");
+}
+
+export async function disableMessagingProgramAction(formData: FormData) {
+  const { account } = await requireAccountActionRole("org_admin");
+  const programId = String(formData.get("programId") || "");
+  if (programId) {
+    await updateMessagingProgram({
+      programId,
+      organizationId: account.organizationId,
+      status: "disabled"
+    });
+  }
+  revalidatePath("/consent");
+  redirect("/consent");
+}
+
+export async function requestHostedAuthorizationAction(formData: FormData) {
+  const programId = String(formData.get("programId") || "");
+  if (!programId) redirect("/login");
+  if (formData.get("recipientInitiated") !== "yes") {
+    redirectWithMessage(`/consent/${programId}`, "You must agree before requesting a verification code");
+  }
+  let authorization;
+  try {
+    const program = await getMessagingProgram(programId, { activeOnly: true });
+    if (!program || !program.public_enrollment_enabled) throw new Error("This consent form is not available");
+    authorization = await requestRecipientAuthorization({
+      organizationId: program.organization_id,
+      programId,
+      phoneNumber: String(formData.get("phoneNumber") || ""),
+      clientRecipientReference: String(formData.get("clientRecipientReference") || "") || null,
+      consentSource: "hosted",
+      recipientInitiated: true,
+      evidenceReference: `hosted:${programId}`,
+      actorType: "recipient"
+    });
+  } catch (error) {
+    redirectWithMessage(`/consent/${programId}`, error instanceof Error ? error.message : "Verification could not be requested");
+  }
+  redirect(`/consent/${programId}/verify?authorizationId=${encodeURIComponent(authorization.id)}`);
+}
+
+export async function confirmHostedAuthorizationAction(formData: FormData) {
+  const programId = String(formData.get("programId") || "");
+  const authorizationId = String(formData.get("authorizationId") || "");
+  if (!programId || !authorizationId) redirect("/login");
+  const authorization = await confirmRecipientAuthorization({
+    authorizationId,
+    code: String(formData.get("code") || ""),
+    actorType: "recipient"
+  });
+  if (!authorization) {
+    redirectWithMessage(
+      `/consent/${programId}/verify?authorizationId=${encodeURIComponent(authorizationId)}`,
+      "Verification code is invalid, expired, or has too many attempts"
+    );
+  }
+  redirect(`/consent/${programId}/complete`);
+}
+
+export async function revokeRecipientAuthorizationAction(formData: FormData) {
+  const { session, account } = await requireAccountActionRole("org_admin");
+  const authorizationId = String(formData.get("authorizationId") || "");
+  if (authorizationId) {
+    await revokeRecipientAuthorization({
+      authorizationId,
+      organizationId: account.organizationId,
+      reasonCode: "admin_revocation",
+      actorType: "admin_user",
+      actorId: session.user.id
+    });
+  }
+  revalidatePath("/consent");
+  redirect("/consent");
 }
 
 export async function createGatewayAction(formData: FormData) {

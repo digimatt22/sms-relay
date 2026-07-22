@@ -4,7 +4,13 @@ import { getPlatformName } from "@/lib/branding";
 const baseUrl = "https://sns.digicolony.net";
 
 const clientEndpoints = [
-  ["POST", "/api/messages", "Client API key or admin session", "Queue an outbound SMS message."],
+  ["GET", "/api/messaging-programs", "Client API key or admin session", "List approved messaging programs."],
+  ["POST", "/api/recipient-authorizations", "Client API key or admin session", "Start a recipient-requested double opt-in."],
+  ["GET", "/api/recipient-authorizations/{authorizationId}", "Client API key or admin session", "Read redacted authorization status."],
+  ["POST", "/api/recipient-authorizations/{authorizationId}/confirm", "Client API key or admin session", "Verify the recipient-supplied six-digit code."],
+  ["POST", "/api/recipient-authorizations/{authorizationId}/resend", "Client API key or admin session", "Resend after the cooldown, subject to limits."],
+  ["POST", "/api/recipient-authorizations/{authorizationId}/revoke", "Client API key or admin session", "Revoke and suppress ordinary messages for the client."],
+  ["POST", "/api/messages", "Client API key or admin session", "Queue an authorized outbound SMS message."],
   ["GET", "/api/messages/{messageId}", "Client API key or admin session", "Read one outbound message with attempts."],
   ["POST", "/api/messages/{messageId}/cancel", "Client API key or admin session", "Cancel a queued, retry-scheduled, or claimed message."],
   ["POST", "/api/messages/{messageId}/requeue", "Client API key or admin session", "Return a non-submitted message to the queue for retry."]
@@ -75,7 +81,9 @@ export default async function ApiDocsPage() {
             <li>Create a client in <strong>Clients</strong>.</li>
             <li>Create an API key under <strong>API Keys</strong>.</li>
             <li>Name the key for where it is used, such as Production CRM or Staging.</li>
+            <li>Create and obtain approval for a messaging program in <strong>Recipient Consent</strong>.</li>
             <li>Send requests with <code>Authorization: Bearer rhc_...</code>.</li>
+            <li>Authorize the recipient before sending an ordinary message.</li>
             <li>Use an <code>idempotencyKey</code> for every logical message.</li>
           </ol>
           <CodeBlock>{`curl -X POST ${baseUrl}/api/messages \\
@@ -84,6 +92,7 @@ export default async function ApiDocsPage() {
   -d '{
     "to": "+13213609348",
     "body": "Hello from ${platformName}",
+    "programId": "11111111-1111-4111-8111-111111111111",
     "idempotencyKey": "order-123-confirmation",
     "metadata": {
       "customerRef": "order-123"
@@ -100,10 +109,36 @@ export default async function ApiDocsPage() {
             <DocFact label="Content type" value="application/json" />
             <DocFact label="Phone format" value="E.164 preferred; common US formats accepted" />
             <DocFact label="MVP success" value="carrier_submitted" />
-            <DocFact label="Callbacks" value="Per-message callbackUrl" />
+            <DocFact label="Consent" value="Required for ordinary messages" />
+            <DocFact label="Callbacks" value="Per-message or authorization callbackUrl" />
           </div>
         </aside>
       </div>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>Authorize a Recipient</h2>
+        <p className="muted">Ordinary messages require a verified authorization for an active messaging program. Use the hosted form or complete this client-embedded flow.</p>
+        <CodeBlock>{`# 1. Start after the recipient accepts the approved disclosure
+curl -X POST ${baseUrl}/api/recipient-authorizations \
+  -H "Authorization: Bearer rhc_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "programId": "11111111-1111-4111-8111-111111111111",
+    "phoneNumber": "+13213609348",
+    "clientRecipientReference": "owner-4821",
+    "consentSource": "client_form",
+    "recipientInitiated": true,
+    "evidenceReference": "signup-owner-4821",
+    "idempotencyKey": "owner-4821-sms-opt-in-v1"
+  }'
+
+# 2. Confirm the six-digit code supplied by the recipient
+curl -X POST ${baseUrl}/api/recipient-authorizations/{authorizationId}/confirm \
+  -H "Authorization: Bearer rhc_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"code":"123456"}'`}</CodeBlock>
+        <p>The hosted alternative is <code>{baseUrl}/consent/&#123;programId&#125;</code>. STOP applies client-wide across all gateways; ambiguous STOP replies activate the platform failsafe suppression.</p>
+      </section>
 
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Send a Message</h2>
@@ -112,6 +147,8 @@ export default async function ApiDocsPage() {
         <FieldTable rows={[
           ["to", "string", "Yes", "Recipient number. E.164 is best; common US formats are normalized."],
           ["body", "string", "Yes", "SMS body. Maximum 1600 characters."],
+          ["programId", "UUID", "Yes", "Active approved messaging program used to evaluate recipient authorization."],
+          ["recipientAuthorizationId", "UUID", "No", "Pins the send to a specific verified authorization; otherwise the active program authorization is selected."],
           ["priority", "number", "No", "Lower values are claimed first. Defaults to 100."],
           ["scheduledAt", "ISO datetime", "No", "Delay sending until this time."],
           ["idempotencyKey", "string", "Recommended", "Prevents duplicate logical submissions per client."],
@@ -145,7 +182,8 @@ export default async function ApiDocsPage() {
   },
   body: JSON.stringify({
     to: "+13213609348",
-    body: "Your verification code is 123456",
+    body: "Your requested property update is ready.",
+    programId: "11111111-1111-4111-8111-111111111111",
     idempotencyKey: "login-abc123-sms-1",
     metadata: { workflow: "login", userId: "abc123" },
     callbackUrl: "https://example.com/webhooks/relayhub"
@@ -172,7 +210,8 @@ response = requests.post(
     },
     json={
         "to": "+13213609348",
-        "body": "Your verification code is 123456",
+        "body": "Your requested property update is ready.",
+        "programId": "11111111-1111-4111-8111-111111111111",
         "idempotencyKey": "login-abc123-sms-1",
         "metadata": {"workflow": "login", "userId": "abc123"},
         "callbackUrl": "https://example.com/webhooks/relayhub",

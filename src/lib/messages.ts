@@ -19,6 +19,11 @@ export async function createMessage(input: {
   apiClientId?: string | null;
   submittedVia?: "dashboard" | "api";
   organizationId?: string;
+  messagingProgramId?: string | null;
+  recipientAuthorizationId?: string | null;
+  messageCategory?: "ordinary" | "verification" | "security" | "opt_out_confirmation";
+  authorizationExempt?: boolean;
+  requiredGatewayId?: string | null;
 }) {
   const to = normalizePhoneNumber(input.to);
   const requestedOrganizationId = input.organizationId || DEFAULT_ORGANIZATION_ID;
@@ -56,6 +61,7 @@ export async function createMessage(input: {
     );
     const organizationId = context.rows[0].organization_id;
     const gatewayPoolId = context.rows[0].gateway_pool_id;
+    let recipientAuthorizationId = input.recipientAuthorizationId || null;
 
     if (input.apiClientId) {
       const limits = await client.query(
@@ -97,26 +103,54 @@ export async function createMessage(input: {
       }
     }
 
-    const optOut = await client.query(
-      `SELECT id
-         FROM opt_outs
-        WHERE organization_id = $1
-          AND phone_number = $2
-          AND status = 'active'
-        LIMIT 1`,
-      [organizationId, to]
-    );
-    if (optOut.rows[0] && input.metadata?.allowOptOutOverride !== true) {
-      throw new Error(`Cannot send to ${redactPhone(to)} because the recipient is opted out`);
+    if (!input.authorizationExempt) {
+      if (!input.messagingProgramId) throw new Error("recipient_authorization_required");
+      const authorization = await client.query(
+        `SELECT a.id
+           FROM recipient_authorizations a
+           JOIN messaging_programs p ON p.id = a.messaging_program_id
+          WHERE a.organization_id = $1
+            AND a.messaging_program_id = $2
+            AND a.phone_number = $3
+            AND a.status = 'verified_authorized'
+            AND p.status = 'active'
+            AND ($4::uuid IS NULL OR a.id = $4::uuid)
+            AND NOT EXISTS (
+              SELECT 1 FROM opt_outs o
+               WHERE o.organization_id = a.organization_id
+                 AND o.phone_number = a.phone_number
+                 AND o.status = 'active'
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM platform_suppressions s
+               WHERE s.phone_number = a.phone_number
+                 AND s.status = 'active'
+            )
+          LIMIT 1`,
+        [organizationId, input.messagingProgramId, to, recipientAuthorizationId]
+      );
+      if (!authorization.rows[0]) {
+        const suppression = await client.query(
+          `SELECT
+             EXISTS (SELECT 1 FROM platform_suppressions WHERE phone_number = $2 AND status = 'active') AS platform_suppressed,
+             EXISTS (SELECT 1 FROM opt_outs WHERE organization_id = $1 AND phone_number = $2 AND status = 'active') AS client_suppressed`,
+          [organizationId, to]
+        );
+        if (suppression.rows[0]?.platform_suppressed) throw new Error("recipient_platform_suppressed");
+        if (suppression.rows[0]?.client_suppressed) throw new Error("recipient_opted_out");
+        throw new Error("recipient_authorization_required");
+      }
+      recipientAuthorizationId = authorization.rows[0].id;
     }
 
     const result = await client.query<any>(
       `INSERT INTO messages (
          organization_id, gateway_pool_id, to_number, to_number_redacted, body,
          priority, scheduled_at, idempotency_key, metadata, callback_url,
-         created_by_user_id, api_client_id, submitted_via
+         created_by_user_id, api_client_id, submitted_via, messaging_program_id,
+         recipient_authorization_id, required_gateway_id, message_category
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17)
        ON CONFLICT DO NOTHING
        RETURNING *`,
       [
@@ -132,7 +166,11 @@ export async function createMessage(input: {
         input.callbackUrl || null,
         input.userId || null,
         input.apiClientId || null,
-        input.submittedVia || "dashboard"
+        input.submittedVia || "dashboard",
+        input.messagingProgramId || null,
+        recipientAuthorizationId,
+        input.requiredGatewayId || null,
+        input.messageCategory || "ordinary"
       ]
     );
     const created = result.rows[0];
@@ -165,7 +203,13 @@ export async function createMessage(input: {
       eventType: "message.created",
       actorType: input.submittedVia === "api" ? "api_client" : "admin_user",
       actorId: input.apiClientId || input.userId || null,
-      details: { submittedVia: input.submittedVia || "dashboard", idempotencyKey: input.idempotencyKey || null }
+      details: {
+        submittedVia: input.submittedVia || "dashboard",
+        idempotencyKey: input.idempotencyKey || null,
+        messagingProgramId: input.messagingProgramId || null,
+        recipientAuthorizationId: message.recipient_authorization_id || null,
+        messageCategory: input.messageCategory || "ordinary"
+      }
     });
   }
   return message;
@@ -313,6 +357,36 @@ export async function claimNextMessage(gatewayId: string) {
                    AND gpm.gateway_id = $1
               )
             )
+            AND (required_gateway_id IS NULL OR required_gateway_id = $1)
+            AND (
+              message_category <> 'ordinary'
+              OR (
+                messaging_program_id IS NOT NULL
+                AND recipient_authorization_id IS NOT NULL
+                AND EXISTS (
+                  SELECT 1
+                    FROM recipient_authorizations authorization
+                    JOIN messaging_programs program ON program.id = authorization.messaging_program_id
+                   WHERE authorization.id = messages.recipient_authorization_id
+                     AND authorization.organization_id = messages.organization_id
+                     AND authorization.messaging_program_id = messages.messaging_program_id
+                     AND authorization.phone_number = messages.to_number
+                     AND authorization.status = 'verified_authorized'
+                     AND program.status = 'active'
+                )
+                AND NOT EXISTS (
+                  SELECT 1 FROM opt_outs o
+                   WHERE o.organization_id = messages.organization_id
+                     AND o.phone_number = messages.to_number
+                     AND o.status = 'active'
+                )
+                AND NOT EXISTS (
+                  SELECT 1 FROM platform_suppressions s
+                   WHERE s.phone_number = messages.to_number
+                     AND s.status = 'active'
+                )
+              )
+            )
           ORDER BY priority ASC,
                    (
                      SELECT COUNT(*)
@@ -365,11 +439,52 @@ export async function startAttempt(messageId: string, gatewayId: string) {
         WHERE id = $1
           AND claim_gateway_id = $2
           AND status = 'claimed'
+          AND (
+            message_category <> 'ordinary'
+            OR (
+              messaging_program_id IS NOT NULL
+              AND recipient_authorization_id IS NOT NULL
+              AND EXISTS (
+                SELECT 1
+                  FROM recipient_authorizations authorization
+                  JOIN messaging_programs program ON program.id = authorization.messaging_program_id
+                 WHERE authorization.id = messages.recipient_authorization_id
+                   AND authorization.organization_id = messages.organization_id
+                   AND authorization.messaging_program_id = messages.messaging_program_id
+                   AND authorization.phone_number = messages.to_number
+                   AND authorization.status = 'verified_authorized'
+                   AND program.status = 'active'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM opt_outs o
+                 WHERE o.organization_id = messages.organization_id
+                   AND o.phone_number = messages.to_number
+                   AND o.status = 'active'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM platform_suppressions s
+                 WHERE s.phone_number = messages.to_number
+                   AND s.status = 'active'
+              )
+            )
+          )
         RETURNING *`,
       [messageId, gatewayId]
     );
     const row = message.rows[0];
-    if (!row) return null;
+    if (!row) {
+      await client.query(
+        `UPDATE messages
+            SET status = 'canceled', claim_gateway_id = NULL, claim_expires_at = NULL,
+                finalized_at = now(), last_error = 'Recipient authorization or suppression changed', updated_at = now()
+          WHERE id = $1
+            AND claim_gateway_id = $2
+            AND status = 'claimed'
+            AND message_category = 'ordinary'`,
+        [messageId, gatewayId]
+      );
+      return null;
+    }
 
     const attempt = await client.query(
       `INSERT INTO message_attempts (message_id, gateway_id, attempt_number, status)
@@ -419,6 +534,14 @@ export async function markSubmitted(messageId: string, attemptId: string, gatewa
     );
     const message = result.rows[0];
     if (message) {
+      if (message.message_category === "ordinary" && message.recipient_authorization_id) {
+        await client.query(
+          `UPDATE recipient_authorizations
+              SET last_message_at = now(), updated_at = now()
+            WHERE id = $1`,
+          [message.recipient_authorization_id]
+        );
+      }
       await recordMessageEventInTransaction(client, {
         organizationId: message.organization_id,
         messageId,

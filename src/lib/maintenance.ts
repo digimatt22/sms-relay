@@ -1,6 +1,8 @@
 import { transaction } from "@/lib/db";
+import { expireRecipientAuthorizationChallenges } from "@/lib/recipient-authorizations";
 
 export async function runMaintenanceJobs() {
+  const expiredAuthorizationChallenges = await expireRecipientAuthorizationChallenges();
   return transaction(async (client) => {
     await client.query("DELETE FROM daily_usage_rollups WHERE usage_date >= (current_date - interval '120 days')::date");
 
@@ -50,8 +52,44 @@ export async function runMaintenanceJobs() {
     const health = await client.query(
       "DELETE FROM gateway_health WHERE created_at < now() - interval '90 days'"
     );
+    const invalidQueuedMessages = await client.query(
+      `UPDATE messages m
+          SET status = 'canceled', finalized_at = now(),
+              last_error = 'Recipient authorization or suppression changed', updated_at = now()
+        WHERE m.message_category = 'ordinary'
+          AND m.status IN ('queued', 'retry_scheduled')
+          AND (
+            m.messaging_program_id IS NULL
+            OR m.recipient_authorization_id IS NULL
+            OR NOT EXISTS (
+              SELECT 1
+                FROM recipient_authorizations a
+                JOIN messaging_programs p ON p.id = a.messaging_program_id
+               WHERE a.id = m.recipient_authorization_id
+                 AND a.organization_id = m.organization_id
+                 AND a.messaging_program_id = m.messaging_program_id
+                 AND a.phone_number = m.to_number
+                 AND a.status = 'verified_authorized'
+                 AND p.status = 'active'
+            )
+            OR EXISTS (
+              SELECT 1 FROM opt_outs o
+               WHERE o.organization_id = m.organization_id
+                 AND o.phone_number = m.to_number
+                 AND o.status = 'active'
+            )
+            OR EXISTS (
+              SELECT 1 FROM platform_suppressions s
+               WHERE s.phone_number = m.to_number
+                 AND s.status = 'active'
+            )
+          )`,
+      []
+    );
 
     return {
+      expiredAuthorizationChallenges,
+      canceledUnauthorizedMessageRows: invalidQueuedMessages.rowCount || 0,
       rollupRows: rollup.rowCount || 0,
       deletedLogRows: logs.rowCount || 0,
       deletedHealthRows: health.rowCount || 0

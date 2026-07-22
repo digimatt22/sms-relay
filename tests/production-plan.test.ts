@@ -20,7 +20,8 @@ test("outbound creation blocks active opt-outs by organization", () => {
   assert.match(messages, /FROM opt_outs/);
   assert.match(messages, /organization_id = \$1/);
   assert.match(messages, /status = 'active'/);
-  assert.match(messages, /allowOptOutOverride/);
+  assert.doesNotMatch(messages, /allowOptOutOverride/);
+  assert.match(messages, /recipient_authorization_required/);
 });
 
 test("gateway claims are constrained by gateway pool membership", () => {

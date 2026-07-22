@@ -8,6 +8,7 @@ import {
   Gauge,
   Inbox,
   KeyRound,
+  ShieldCheck,
   LayoutDashboard,
   Network,
   RadioTower,
@@ -62,6 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       items: [
         { href: "/organizations", label: isPlatformAdmin ? "Clients" : "Users", icon: Building2 },
         { href: "/clients", label: "API Keys", icon: KeyRound },
+        { href: "/consent", label: "Recipient Consent", icon: ShieldCheck },
         { href: "/usage", label: "Usage", icon: Gauge }
       ]
     }

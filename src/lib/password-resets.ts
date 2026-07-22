@@ -68,12 +68,13 @@ export async function requestPasswordReset(email: string) {
       priority: 10,
       metadata: {
         systemType: "password_reset",
-        allowOptOutOverride: true,
         passwordResetId: reset.id
       },
       organizationId: user.organization_id,
       userId: user.id,
-      submittedVia: "dashboard"
+      submittedVia: "dashboard",
+      messageCategory: "security",
+      authorizationExempt: true
     });
     await query("UPDATE password_reset_codes SET message_id = $1 WHERE id = $2", [message.id, reset.id]);
   } catch {
