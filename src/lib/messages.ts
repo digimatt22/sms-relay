@@ -6,6 +6,7 @@ import { normalizePhoneNumber } from "@/lib/phone";
 import { redactPhone } from "@/lib/security";
 import type { MessageStatus } from "@/lib/types";
 import { redactSensitiveMessage } from "@/lib/sensitive-messages";
+import { isRecipientConsentDebugBypassEnabled } from "@/lib/debug-flags";
 
 export async function createMessage(input: {
   to: string;
@@ -28,6 +29,7 @@ export async function createMessage(input: {
   const to = normalizePhoneNumber(input.to);
   const requestedOrganizationId = input.organizationId || DEFAULT_ORGANIZATION_ID;
   const requestedDefaultPoolId = await ensureDefaultGatewayPool(requestedOrganizationId);
+  const debugBypassRecipientConsent = isRecipientConsentDebugBypassEnabled();
   const { message, wasCreated } = await transaction(async (client) => {
     const context = await client.query(
       `WITH client_context AS (
@@ -105,7 +107,31 @@ export async function createMessage(input: {
 
     if (!input.authorizationExempt) {
       if (!input.messagingProgramId) throw new Error("recipient_authorization_required");
-      const authorization = await client.query(
+      const eligibility = await client.query(
+        `SELECT
+           EXISTS (
+             SELECT 1 FROM messaging_programs p
+              WHERE p.id = $2
+                AND p.organization_id = $1
+                AND p.status = 'active'
+           ) AS program_active,
+           EXISTS (
+             SELECT 1 FROM platform_suppressions
+              WHERE phone_number = $3 AND status = 'active'
+           ) AS platform_suppressed,
+           EXISTS (
+             SELECT 1 FROM opt_outs
+              WHERE organization_id = $1
+                AND phone_number = $3
+                AND status = 'active'
+           ) AS client_suppressed`,
+        [organizationId, input.messagingProgramId, to]
+      );
+      if (!eligibility.rows[0]?.program_active) throw new Error("program_not_active");
+      if (eligibility.rows[0]?.platform_suppressed) throw new Error("recipient_platform_suppressed");
+      if (eligibility.rows[0]?.client_suppressed) throw new Error("recipient_opted_out");
+
+      const authorization = debugBypassRecipientConsent ? null : await client.query(
         `SELECT a.id
            FROM recipient_authorizations a
            JOIN messaging_programs p ON p.id = a.messaging_program_id
@@ -129,18 +155,10 @@ export async function createMessage(input: {
           LIMIT 1`,
         [organizationId, input.messagingProgramId, to, recipientAuthorizationId]
       );
-      if (!authorization.rows[0]) {
-        const suppression = await client.query(
-          `SELECT
-             EXISTS (SELECT 1 FROM platform_suppressions WHERE phone_number = $2 AND status = 'active') AS platform_suppressed,
-             EXISTS (SELECT 1 FROM opt_outs WHERE organization_id = $1 AND phone_number = $2 AND status = 'active') AS client_suppressed`,
-          [organizationId, to]
-        );
-        if (suppression.rows[0]?.platform_suppressed) throw new Error("recipient_platform_suppressed");
-        if (suppression.rows[0]?.client_suppressed) throw new Error("recipient_opted_out");
+      if (!debugBypassRecipientConsent && !authorization?.rows[0]) {
         throw new Error("recipient_authorization_required");
       }
-      recipientAuthorizationId = authorization.rows[0].id;
+      recipientAuthorizationId = authorization?.rows[0]?.id || null;
     }
 
     const result = await client.query<any>(
@@ -268,6 +286,7 @@ export async function getMessage(id: string, options: { apiClientId?: string | n
 }
 
 export async function claimNextMessage(gatewayId: string) {
+  const debugBypassRecipientConsent = isRecipientConsentDebugBypassEnabled();
   return transaction(async (client: pg.PoolClient) => {
     await client.query(
       `UPDATE messages
@@ -362,8 +381,17 @@ export async function claimNextMessage(gatewayId: string) {
               message_category <> 'ordinary'
               OR (
                 messaging_program_id IS NOT NULL
-                AND recipient_authorization_id IS NOT NULL
                 AND EXISTS (
+                  SELECT 1 FROM messaging_programs active_program
+                   WHERE active_program.id = messages.messaging_program_id
+                     AND active_program.organization_id = messages.organization_id
+                     AND active_program.status = 'active'
+                )
+                AND (
+                  $2::boolean = true
+                  OR (
+                    recipient_authorization_id IS NOT NULL
+                    AND EXISTS (
                   SELECT 1
                     FROM recipient_authorizations authz
                     JOIN messaging_programs program ON program.id = authz.messaging_program_id
@@ -373,6 +401,8 @@ export async function claimNextMessage(gatewayId: string) {
                      AND authz.phone_number = messages.to_number
                      AND authz.status = 'verified_authorized'
                      AND program.status = 'active'
+                    )
+                  )
                 )
                 AND NOT EXISTS (
                   SELECT 1 FROM opt_outs o
@@ -412,7 +442,7 @@ export async function claimNextMessage(gatewayId: string) {
          FROM candidate
         WHERE m.id = candidate.id
         RETURNING m.*`,
-      [gatewayId]
+      [gatewayId, debugBypassRecipientConsent]
     );
     const message = result.rows[0] || null;
     if (message) {
@@ -430,6 +460,7 @@ export async function claimNextMessage(gatewayId: string) {
 }
 
 export async function startAttempt(messageId: string, gatewayId: string) {
+  const debugBypassRecipientConsent = isRecipientConsentDebugBypassEnabled();
   return transaction(async (client) => {
     const message = await client.query(
       `UPDATE messages
@@ -443,8 +474,17 @@ export async function startAttempt(messageId: string, gatewayId: string) {
             message_category <> 'ordinary'
             OR (
               messaging_program_id IS NOT NULL
-              AND recipient_authorization_id IS NOT NULL
               AND EXISTS (
+                SELECT 1 FROM messaging_programs active_program
+                 WHERE active_program.id = messages.messaging_program_id
+                   AND active_program.organization_id = messages.organization_id
+                   AND active_program.status = 'active'
+              )
+              AND (
+                $3::boolean = true
+                OR (
+                  recipient_authorization_id IS NOT NULL
+                  AND EXISTS (
                 SELECT 1
                   FROM recipient_authorizations authz
                   JOIN messaging_programs program ON program.id = authz.messaging_program_id
@@ -454,6 +494,8 @@ export async function startAttempt(messageId: string, gatewayId: string) {
                    AND authz.phone_number = messages.to_number
                    AND authz.status = 'verified_authorized'
                    AND program.status = 'active'
+                  )
+                )
               )
               AND NOT EXISTS (
                 SELECT 1 FROM opt_outs o
@@ -469,7 +511,7 @@ export async function startAttempt(messageId: string, gatewayId: string) {
             )
           )
         RETURNING *`,
-      [messageId, gatewayId]
+      [messageId, gatewayId, debugBypassRecipientConsent]
     );
     const row = message.rows[0];
     if (!row) {

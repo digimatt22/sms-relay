@@ -13,6 +13,7 @@ Use the Codex skill `$deploy-to-sheldon` for deployment, status, and rollback op
 - Keep the Cloudflare HTTP Host Header override unset so Caddy receives the public hostname. Visiting `localhost:80` directly may legitimately show Caddy's default site.
 - For Auth.js/NextAuth, set `AUTH_URL` to the canonical public HTTPS hostname and verify generated callback URLs after deployment.
 - Set `PLATFORM_NAME` to the customer-facing brand shown in page titles, navigation, authentication, and security SMS messages.
+- Set `DEBUG_BYPASS_RECIPIENT_CONSENT=true` only on development deployments to bypass verified opt-in records. Active programs, STOP opt-outs, and platform suppressions remain enforced. Leave it `false` everywhere else.
 - Database schema migrations and seed data are separate, explicitly authorized operations; deployment does not run them automatically.
 - Verify the health endpoint and public HTTPS after deployment.
 - Preserve the prior release for rollback.

@@ -94,20 +94,6 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
         </table>
       </section>
 
-      <section className="panel" style={{ marginTop: 16 }}>
-        <h2>How recipients opt in</h2>
-        <div className="grid">
-          <div>
-            <h3>DigiColony-hosted page</h3>
-            <p>Open an active program’s hosted-form link above and give that full URL to the recipient. They enter their mobile number, accept the program disclosure, and verify the six-digit code sent by SMS.</p>
-          </div>
-          <div>
-            <h3>Client website or app</h3>
-            <p>The client displays the approved disclosure beside a separate unchecked opt-in control, then starts and confirms authorization through the Recipient Authorization API. See <Link href="/docs">API Docs</Link> for the request sequence.</p>
-          </div>
-        </div>
-      </section>
-
       {canManageConsent ? (
         <section className="panel" style={{ marginTop: 16 }}>
           <h2>Create Messaging Program</h2>

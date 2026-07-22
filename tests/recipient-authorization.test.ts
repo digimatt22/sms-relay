@@ -44,12 +44,28 @@ test("generated consent language and verification texts contain locked disclosur
 
 test("ordinary messages are blocked at create, claim, and attempt boundaries", () => {
   const messages = readFileSync("src/lib/messages.ts", "utf8");
+  const maintenance = readFileSync("src/lib/maintenance.ts", "utf8");
   assert.match(messages, /recipient_authorization_required/);
+  assert.match(messages, /isRecipientConsentDebugBypassEnabled/);
+  assert.match(messages, /\$2::boolean = true/);
+  assert.match(messages, /\$3::boolean = true/);
   assert.match(messages, /message_category <> 'ordinary'/);
   assert.match(messages, /message_category = 'ordinary'/);
   assert.match(messages, /platform_suppressions/);
   assert.match(messages, /required_gateway_id/);
+  assert.match(maintenance, /\$1::boolean = false/);
   assert.doesNotMatch(messages, /recipient_authorizations authorization/);
+});
+
+test("recipient consent debug bypass is explicit and defaults off", async () => {
+  const previous = process.env.DEBUG_BYPASS_RECIPIENT_CONSENT;
+  delete process.env.DEBUG_BYPASS_RECIPIENT_CONSENT;
+  const { isRecipientConsentDebugBypassEnabled } = await import("../src/lib/debug-flags");
+  assert.equal(isRecipientConsentDebugBypassEnabled(), false);
+  process.env.DEBUG_BYPASS_RECIPIENT_CONSENT = "true";
+  assert.equal(isRecipientConsentDebugBypassEnabled(), true);
+  if (previous === undefined) delete process.env.DEBUG_BYPASS_RECIPIENT_CONSENT;
+  else process.env.DEBUG_BYPASS_RECIPIENT_CONSENT = previous;
 });
 
 test("migration creates authorization evidence, challenges, programs, and suppression", () => {

@@ -1,8 +1,10 @@
 import { transaction } from "@/lib/db";
 import { expireRecipientAuthorizationChallenges } from "@/lib/recipient-authorizations";
+import { isRecipientConsentDebugBypassEnabled } from "@/lib/debug-flags";
 
 export async function runMaintenanceJobs() {
   const expiredAuthorizationChallenges = await expireRecipientAuthorizationChallenges();
+  const debugBypassRecipientConsent = isRecipientConsentDebugBypassEnabled();
   return transaction(async (client) => {
     await client.query("DELETE FROM daily_usage_rollups WHERE usage_date >= (current_date - interval '120 days')::date");
 
@@ -60,8 +62,17 @@ export async function runMaintenanceJobs() {
           AND m.status IN ('queued', 'retry_scheduled')
           AND (
             m.messaging_program_id IS NULL
-            OR m.recipient_authorization_id IS NULL
             OR NOT EXISTS (
+              SELECT 1 FROM messaging_programs active_program
+               WHERE active_program.id = m.messaging_program_id
+                 AND active_program.organization_id = m.organization_id
+                 AND active_program.status = 'active'
+            )
+            OR (
+              $1::boolean = false
+              AND (
+                m.recipient_authorization_id IS NULL
+                OR NOT EXISTS (
               SELECT 1
                 FROM recipient_authorizations a
                 JOIN messaging_programs p ON p.id = a.messaging_program_id
@@ -71,6 +82,8 @@ export async function runMaintenanceJobs() {
                  AND a.phone_number = m.to_number
                  AND a.status = 'verified_authorized'
                  AND p.status = 'active'
+                )
+              )
             )
             OR EXISTS (
               SELECT 1 FROM opt_outs o
@@ -84,7 +97,7 @@ export async function runMaintenanceJobs() {
                  AND s.status = 'active'
             )
           )`,
-      []
+      [debugBypassRecipientConsent]
     );
 
     return {
