@@ -37,7 +37,22 @@ test("signed-in users are redirected away from the sign-in screen", () => {
   const login = readFileSync("src/app/login/page.tsx", "utf8");
   const layout = readFileSync("src/app/layout.tsx", "utf8");
   assert.match(login, /if \(session\?\.user\) redirect\("\/"\)/);
-  assert.match(layout, /\{session\?\.user \? \(/);
+  assert.match(layout, /showAuthenticatedShell/);
+});
+
+test("hosted consent pages never render the authenticated navigation shell", () => {
+  const layout = readFileSync("src/app/layout.tsx", "utf8");
+  const proxy = readFileSync("src/proxy.ts", "utf8");
+  const hostedConsent = readFileSync("src/app/consent/[programId]/page.tsx", "utf8");
+  const styles = readFileSync("src/app/globals.css", "utf8");
+
+  assert.match(proxy, /x-relayhub-pathname/);
+  assert.match(layout, /isHostedConsentPath/);
+  assert.match(layout, /Boolean\(session\?\.user\) && !isHostedConsentPath/);
+  assert.match(hostedConsent, /className="consent-checkbox"/);
+  assert.match(hostedConsent, /This authorization is for text messages from/);
+  assert.match(styles, /grid-template-columns: 18px minmax\(0, 1fr\)/);
+  assert.match(styles, /\.consent-support-note/);
 });
 
 test("shared form styles provide consistent field and stacked-form spacing", () => {

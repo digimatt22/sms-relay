@@ -27,13 +27,15 @@ export default async function HostedConsentPage({
             <label htmlFor="phoneNumber">Mobile number</label>
             <input id="phoneNumber" name="phoneNumber" type="tel" inputMode="tel" autoComplete="tel" required placeholder="+15551234567" />
           </div>
-          <label className="relationship-row" style={{ alignItems: "flex-start" }}>
+          <label className="consent-checkbox">
             <input type="checkbox" name="recipientInitiated" value="yes" required />
             <span>{program.disclosure_text}</span>
           </label>
           <button className="primary" type="submit">Send verification code</button>
         </form>
-        <p className="muted" style={{ marginTop: 16 }}>Messages are sent for {program.sender_display_name}. Help: {program.help_contact}</p>
+        <p className="consent-support-note">
+          This authorization is for text messages from {program.sender_display_name}. Questions? Contact {program.help_contact}.
+        </p>
       </section>
     </main>
   );

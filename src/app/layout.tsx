@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import {
   Bell,
@@ -33,11 +34,14 @@ export function generateMetadata(): Metadata {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const platformName = getPlatformName();
   const session = await auth();
+  const pathname = (await headers()).get("x-relayhub-pathname") || "";
+  const isHostedConsentPath = /^\/consent\/[^/]+(?:\/(?:verify|complete))?\/?$/.test(pathname);
+  const showAuthenticatedShell = Boolean(session?.user) && !isHostedConsentPath;
   const isPlatformAdmin = normalizeRole(session?.user?.role) === "platform_admin";
-  const organizations = session?.user
+  const organizations = showAuthenticatedShell && session?.user
     ? await listOrganizationsForUser(session.user.id, session.user.role)
     : [];
-  const currentOrganizationId = session?.user
+  const currentOrganizationId = showAuthenticatedShell && session?.user
     ? await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role })
     : null;
   const navGroups = [
@@ -73,7 +77,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body>
         <div className="app-shell">
-          {session?.user ? (
+          {showAuthenticatedShell && session?.user ? (
             <aside className="sidebar">
               <div>
                 <Link className="brand brand-lockup" href="/">
@@ -124,8 +128,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
             </aside>
           ) : null}
-          <main className={session?.user ? "content" : "content full"}>
-            {session?.user ? (
+          <main className={showAuthenticatedShell ? "content" : "content full"}>
+            {showAuthenticatedShell && session?.user ? (
               <div className="topbar">
                 <div className="topbar-left">
                   <button className="icon-button" type="button" aria-label="Help"><CircleHelp size={16} /></button>

@@ -813,6 +813,28 @@ input[type="radio"] {
   width: auto;
 }
 
+.consent-checkbox {
+  align-items: start;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  line-height: 1.45;
+}
+
+.consent-checkbox input {
+  margin: 3px 0 0;
+}
+
+.consent-support-note {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 18px 0 0;
+  padding-top: 12px;
+}
+
 textarea {
   min-height: 120px;
 }
