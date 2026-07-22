@@ -12,6 +12,10 @@ test("organizations page supports invitations and client-user editing", () => {
   const statusMigration = readFileSync("migrations/013_client_user_status.sql", "utf8");
 
   assert.match(page, /<h2>Client Users<\/h2>/);
+  assert.match(page, /\{users\.length\} \{users\.length === 1 \? "user" : "users"\}/);
+  assert.match(page, /clientId=\$\{client\.id\}#client-users/);
+  assert.match(page, /id="client-users"/);
+  assert.match(page, /Showing users for \$\{selectedClient\.name\}/);
   assert.match(page, /name="clientId"/);
   assert.match(page, /Pencil/);
   assert.match(page, /Pending invite/);

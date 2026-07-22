@@ -720,6 +720,18 @@ nav a:hover,
   font-size: 13px;
 }
 
+.client-roster-link {
+  color: var(--text);
+}
+
+.client-roster-link:hover {
+  color: var(--accent-dark);
+}
+
+.client-roster-selected td {
+  background: #ecfdf5;
+}
+
 .clickable-table-row {
   cursor: pointer;
   transition: background-color 120ms ease;

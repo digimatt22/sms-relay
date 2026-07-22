@@ -26,6 +26,7 @@ export default async function ClientsAdminPage({
   const currentOrganizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
   const clientIds = clients.map((client: any) => client.id);
   const selectedClientId = sp.clientId && clientIds.includes(sp.clientId) ? sp.clientId : "";
+  const selectedClient = clients.find((client: any) => client.id === selectedClientId);
   const memberships = await query(
     `SELECT m.*, u.email, u.name AS user_name, o.name AS client_name
        FROM organization_memberships m
@@ -122,22 +123,14 @@ export default async function ClientsAdminPage({
               const clientStats = statByClient.get(client.id) as any;
               const users = usersByClient.get(client.id) || [];
               return (
-                <tr key={client.id}>
+                <tr className={client.id === selectedClientId ? "client-roster-selected" : undefined} key={client.id}>
                   <td>
-                    <strong>{client.name}</strong>
+                    <Link className="client-roster-link" href={`/organizations?clientId=${client.id}#client-users`}>
+                      <strong>{client.name}</strong>
+                    </Link>
                     <div className="object-meta">{client.slug}</div>
                   </td>
-                  <td>
-                    {users.length ? (
-                      <div className="object-list">
-                        {users.map((user: any) => (
-                          <span key={user.id}>{user.user_name || user.email} <span className="chip">{user.role}</span></span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="muted">No client users</span>
-                    )}
-                  </td>
+                  <td><Link href={`/organizations?clientId=${client.id}#client-users`}>{users.length} {users.length === 1 ? "user" : "users"}</Link></td>
                   <td>{clientStats?.api_app_count || 0}</td>
                   <td>{clientStats?.message_count || 0}</td>
                   <td>{clientStats?.inbound_count || 0}</td>
@@ -165,13 +158,21 @@ export default async function ClientsAdminPage({
       </section>
       ) : null}
 
-      <section className="panel" style={{ marginTop: 16 }}>
+      <section className="panel" id="client-users" style={{ marginTop: 16 }}>
         <div className="page-header" style={{ marginBottom: 12 }}>
           <div>
             <h2>Client Users</h2>
-            <p className="muted">{platformAdmin ? "Manage users across visible clients." : "Manage users who can access this client account."}</p>
+            <p className="muted">
+              {platformAdmin
+                ? selectedClient
+                  ? `Showing users for ${selectedClient.name}.`
+                  : "Manage users across visible clients."
+                : "Manage users who can access this client account."}
+            </p>
           </div>
-          {!platformAdmin && canManageUsers ? (
+          {platformAdmin && selectedClient ? (
+            <Link className="button secondary" href="/organizations#client-users">Show all clients</Link>
+          ) : !platformAdmin && canManageUsers ? (
             <Link className="button" href={`/organizations/${account.organizationId}/invite`}><UserPlus size={16} />Invite user</Link>
           ) : null}
         </div>
