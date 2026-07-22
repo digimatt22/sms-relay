@@ -30,7 +30,11 @@ export default async function ClientsPage({
       <header className="page-header">
         <div>
           <h1>API Keys</h1>
-          <p>Create and manage API keys for applications that submit SMS through this client account.</p>
+          <p>
+            {canAdminClients
+              ? "Create and manage API keys for applications that submit SMS through this client account."
+              : "View the applications and API keys available to this client account. Contact your client administrator to create an app or API key."}
+          </p>
         </div>
         <div className="actions-row">
           <label className="field" style={{ display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
@@ -96,7 +100,13 @@ export default async function ClientsPage({
               <Link aria-label={`Open ${client.name}`} href={`/clients/${client.id}`}><MoreVertical size={18} /></Link>
             </div>
           ))}
-          {!clients.length ? <div className="data-row">No API keys yet. Create one to connect an application.</div> : null}
+          {!clients.length ? (
+            <div className="data-row">
+              {canAdminClients
+                ? "No API apps yet. Create an app and API key to connect an application."
+                : "No API apps yet. Contact your client administrator to create an app and API key."}
+            </div>
+          ) : null}
         </div>
       </section>
 

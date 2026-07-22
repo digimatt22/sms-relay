@@ -17,6 +17,7 @@ const clientEndpoints = [
 ];
 
 const adminEndpoints = [
+  ["POST", "/api/messaging-programs", "Client admin session", "Create a messaging program and submit it for platform approval."],
   ["GET", "/api/messages?status=queued", "Admin session", "List recent outbound messages, optionally filtered by status."],
   ["GET", "/api/gateways", "Admin session", "List gateways for the active client context."],
   ["POST", "/api/gateways", "Admin session", "Create a gateway and return its one-time gateway key."],
@@ -114,6 +115,42 @@ export default async function ApiDocsPage() {
           </div>
         </aside>
       </div>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>SwimSense Pool Monitoring Setup</h2>
+        <p className="muted">Create one messaging program for the SwimSense alert service. Do not create a new program for every pool owner.</p>
+        <h3>Dashboard setup (client administrator)</h3>
+        <ol>
+          <li>Open <strong>Recipient Consent</strong> and create <strong>SwimSense Pool Alerts</strong>.</li>
+          <li>Use sender name <strong>SwimSense Pool Monitoring</strong>, class <strong>Informational recurring</strong>, and purpose <strong>Pool condition alerts, equipment warnings, and maintenance notifications</strong>.</li>
+          <li>Set the frequency to <strong>Message frequency varies based on pool conditions</strong>, then add SwimSense support, terms, privacy, and callback URLs.</li>
+          <li>Submit the program. A platform administrator must approve it before recipients can enroll or alerts can be sent.</li>
+        </ol>
+        <h3>API setup (authenticated client administrator)</h3>
+        <p>The program-management endpoint requires a client administrator session. Ordinary application API keys cannot create or approve messaging programs.</p>
+        <CodeBlock>{`POST ${baseUrl}/api/messaging-programs
+Content-Type: application/json
+
+{
+  "name": "SwimSense Pool Alerts",
+  "senderDisplayName": "SwimSense Pool Monitoring",
+  "messageClass": "informational_recurring",
+  "purpose": "Pool condition alerts, equipment warnings, and maintenance notifications",
+  "expectedFrequency": "Message frequency varies based on pool conditions",
+  "helpContact": "support@swimsense.example",
+  "termsUrl": "https://swimsense.example/terms",
+  "privacyUrl": "https://swimsense.example/privacy",
+  "callbackUrl": "https://api.swimsense.example/webhooks/digicolony"
+}`}</CodeBlock>
+        <p>After approval, the SwimSense application calls <code>GET /api/messaging-programs</code> with its app key and stores the approved program ID.</p>
+        <h3>Signup and account settings</h3>
+        <ol>
+          <li>Display the approved disclosure beside an unchecked SMS-alert checkbox. Never bundle consent into the general terms acceptance.</li>
+          <li>After the user selects SMS alerts, post the phone number and evidence reference to <code>POST /api/recipient-authorizations</code>.</li>
+          <li>Ask the user for the six-digit texted code and confirm it through the authorization confirmation endpoint.</li>
+          <li>Send pool alerts only after the record reaches <code>verified_authorized</code>. Use the same flow later in Account Settings for users who did not opt in during signup.</li>
+        </ol>
+      </section>
 
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Authorize a Recipient</h2>

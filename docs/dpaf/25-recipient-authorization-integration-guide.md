@@ -16,6 +16,25 @@ Base URL: `https://sns.digicolony.net`
 
 Verification establishes control of the mobile number. It is deliberately coupled to a recorded affirmative disclosure acceptance so that the code alone is not treated as consent.
 
+## SwimSense Pool Monitoring Example
+
+Create one organization-level messaging program for the service; do not create one per recipient.
+
+### Create through the interface
+
+1. A SwimSense client administrator opens **Recipient Consent** and creates **SwimSense Pool Alerts**.
+2. Use sender name **SwimSense Pool Monitoring**, class `informational_recurring`, purpose **Pool condition alerts, equipment warnings, and maintenance notifications**, and frequency **Message frequency varies based on pool conditions**.
+3. Add SwimSense support, terms, privacy, and authorization callback URLs.
+4. Submit it for platform-administrator approval. The hosted form and API enrollment flow become usable after approval.
+
+### Create through the administration API
+
+`POST /api/messaging-programs` accepts the same fields for an authenticated client administrator. This is an administrative endpoint: an ordinary application API key cannot create or approve programs. That separation prevents a compromised message-sending key from changing the approved purpose or disclosure.
+
+### Enroll a pool owner
+
+During signup, or later under Account Settings, SwimSense displays the approved disclosure beside a separate unchecked SMS-alert control. After the owner affirmatively selects it, the SwimSense backend starts double opt-in with `POST /api/recipient-authorizations`, records a signup or settings evidence reference, and confirms the six-digit code through the confirmation endpoint. Pool alerts can begin only when the authorization is `verified_authorized`.
+
 ## Authentication
 
 Client requests use an organization API key:

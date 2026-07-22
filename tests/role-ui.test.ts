@@ -9,6 +9,7 @@ test("dashboard mutation surfaces are gated by role", () => {
   const gatewaysPage = readFileSync("src/app/gateways/page.tsx", "utf8");
   const gatewayDetailPage = readFileSync("src/app/gateways/[id]/page.tsx", "utf8");
   const clientsPage = readFileSync("src/app/clients/page.tsx", "utf8");
+  const consentPage = readFileSync("src/app/consent/page.tsx", "utf8");
   const routingPage = readFileSync("src/app/routing/page.tsx", "utf8");
 
   assert.match(newMessagePage, /requireRolePage\("operator"\)/);
@@ -19,6 +20,11 @@ test("dashboard mutation surfaces are gated by role", () => {
   assert.match(gatewayDetailPage, /canOperate \? \(/);
   assert.match(gatewaysPage, /hasRole\(session, "org_admin"\)/);
   assert.match(clientsPage, /hasRole\(session, "org_admin"\)/);
+  assert.match(clientsPage, /Contact your client administrator to create an app and API key/);
+  assert.match(consentPage, /accountHasRole\(account, "org_admin"\)/);
+  assert.match(consentPage, /\{canManageConsent \? \(/);
+  assert.match(consentPage, /canManageConsent && program\.status === "active"/);
+  assert.match(consentPage, /canManageConsent && authorization\.status === "verified_authorized"/);
   assert.match(routingPage, /requireRolePage\("org_admin"\)/);
 });
 

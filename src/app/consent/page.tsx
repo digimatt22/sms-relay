@@ -6,7 +6,7 @@ import {
   disableMessagingProgramAction,
   revokeRecipientAuthorizationAction
 } from "@/app/actions";
-import { getAccountContext } from "@/lib/account-context";
+import { accountHasRole, getAccountContext } from "@/lib/account-context";
 import { requireAdminPage } from "@/lib/page-auth";
 import { listMessagingPrograms } from "@/lib/messaging-programs";
 import { listRecipientAuthorizations } from "@/lib/recipient-authorizations";
@@ -15,6 +15,7 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
   const session = await requireAdminPage();
   const account = await getAccountContext(session);
   const params = await searchParams;
+  const canManageConsent = accountHasRole(account, "org_admin");
   const [programs, authorizations] = await Promise.all([
     listMessagingPrograms({ organizationId: account.organizationId }),
     listRecipientAuthorizations({ organizationId: account.organizationId })
@@ -28,7 +29,11 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
       <header className="page-header">
         <div>
           <h1>Recipient Consent</h1>
-          <p>Approve messaging programs and keep auditable phone verification and opt-in records.</p>
+          <p>
+            {canManageConsent
+              ? "Create and manage messaging programs and keep auditable phone verification and opt-in records."
+              : "View approved messaging programs and auditable phone verification and opt-in records."}
+          </p>
         </div>
       </header>
 
@@ -64,7 +69,7 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
                       <button className="ghost-button" type="submit"><CheckCircle2 size={15} /> Approve</button>
                     </form>
                   ) : null}
-                  {program.status === "active" ? (
+                  {canManageConsent && program.status === "active" ? (
                     <form action={disableMessagingProgramAction}>
                       <input type="hidden" name="programId" value={program.id} />
                       <button className="ghost-button" type="submit">Disable</button>
@@ -78,35 +83,41 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
         </table>
       </section>
 
-      <section className="panel" style={{ marginTop: 16 }}>
-        <h2>Create Messaging Program</h2>
-        <p className="muted">Platform administrators activate programs immediately. Client administrators submit them for approval.</p>
-        <form className="form" action={createMessagingProgramAction}>
-          <div className="grid">
-            <div className="field"><label htmlFor="name">Program Name</label><input id="name" name="name" required placeholder="Owner notifications" /></div>
-            <div className="field"><label htmlFor="senderDisplayName">Sender Name</label><input id="senderDisplayName" name="senderDisplayName" required placeholder="DigiColony" /></div>
-          </div>
-          <div className="field">
-            <label htmlFor="messageClass">Message Class</label>
-            <select id="messageClass" name="messageClass" defaultValue="informational_recurring">
-              <option value="informational_recurring">Informational recurring</option>
-              <option value="user_requested_transactional">User-requested transactional</option>
-              <option value="marketing">Marketing</option>
-            </select>
-          </div>
-          <div className="field"><label htmlFor="purpose">Purpose</label><textarea id="purpose" name="purpose" required placeholder="Updates between the agent and property owners" /></div>
-          <div className="grid">
-            <div className="field"><label htmlFor="expectedFrequency">Expected Frequency</label><input id="expectedFrequency" name="expectedFrequency" required defaultValue="Message frequency varies" /></div>
-            <div className="field"><label htmlFor="helpContact">Help Contact</label><input id="helpContact" name="helpContact" required placeholder="support@example.com or 555-123-4567" /></div>
-          </div>
-          <div className="grid">
-            <div className="field"><label htmlFor="termsUrl">Terms URL</label><input id="termsUrl" name="termsUrl" type="url" /></div>
-            <div className="field"><label htmlFor="privacyUrl">Privacy URL</label><input id="privacyUrl" name="privacyUrl" type="url" /></div>
-          </div>
-          <div className="field"><label htmlFor="callbackUrl">Authorization Callback URL</label><input id="callbackUrl" name="callbackUrl" type="url" /></div>
-          <button className="primary" type="submit"><ShieldCheck size={16} />Create program</button>
-        </form>
-      </section>
+      {canManageConsent ? (
+        <section className="panel" style={{ marginTop: 16 }}>
+          <h2>Create Messaging Program</h2>
+          <p className="muted">Platform administrators activate programs immediately. Client administrators submit them for approval.</p>
+          <form className="form" action={createMessagingProgramAction}>
+            <div className="grid">
+              <div className="field"><label htmlFor="name">Program Name</label><input id="name" name="name" required placeholder="SwimSense Pool Alerts" /></div>
+              <div className="field"><label htmlFor="senderDisplayName">Sender Name</label><input id="senderDisplayName" name="senderDisplayName" required placeholder="SwimSense Pool Monitoring" /></div>
+            </div>
+            <div className="field">
+              <label htmlFor="messageClass">Message Class</label>
+              <select id="messageClass" name="messageClass" defaultValue="informational_recurring">
+                <option value="informational_recurring">Informational recurring</option>
+                <option value="user_requested_transactional">User-requested transactional</option>
+                <option value="marketing">Marketing</option>
+              </select>
+            </div>
+            <div className="field"><label htmlFor="purpose">Purpose</label><textarea id="purpose" name="purpose" required placeholder="Pool condition alerts, equipment warnings, and maintenance notifications" /></div>
+            <div className="grid">
+              <div className="field"><label htmlFor="expectedFrequency">Expected Frequency</label><input id="expectedFrequency" name="expectedFrequency" required defaultValue="Message frequency varies based on pool conditions" /></div>
+              <div className="field"><label htmlFor="helpContact">Help Contact</label><input id="helpContact" name="helpContact" required placeholder="support@example.com or 555-123-4567" /></div>
+            </div>
+            <div className="grid">
+              <div className="field"><label htmlFor="termsUrl">Terms URL</label><input id="termsUrl" name="termsUrl" type="url" /></div>
+              <div className="field"><label htmlFor="privacyUrl">Privacy URL</label><input id="privacyUrl" name="privacyUrl" type="url" /></div>
+            </div>
+            <div className="field"><label htmlFor="callbackUrl">Authorization Callback URL</label><input id="callbackUrl" name="callbackUrl" type="url" /></div>
+            <button className="primary" type="submit"><ShieldCheck size={16} />Create program</button>
+          </form>
+        </section>
+      ) : (
+        <section className="notice" style={{ marginTop: 16 }}>
+          Messaging programs are managed by client administrators. Contact your client administrator to create or change a program.
+        </section>
+      )}
 
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Authorization Records</h2>
@@ -121,7 +132,7 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
                 <td><span className={`status ${authorization.status === "verified_authorized" ? "active" : authorization.status === "challenge_pending" ? "pending" : "disabled"}`}>{authorization.status.replace(/_/g, " ")}</span></td>
                 <td>{new Date(authorization.verified_at || authorization.requested_at).toLocaleString()}</td>
                 <td>
-                  {authorization.status === "verified_authorized" ? (
+                  {canManageConsent && authorization.status === "verified_authorized" ? (
                     <form action={revokeRecipientAuthorizationAction}>
                       <input type="hidden" name="authorizationId" value={authorization.id} />
                       <button className="ghost-button" type="submit">Revoke</button>
