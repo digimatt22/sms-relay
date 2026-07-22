@@ -9,8 +9,8 @@ export default async function InboundMessagePage({ params }: { params: Promise<{
   const session = await requireAdminPage();
   const { id } = await params;
   const organizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
-  const message = await getInboundMessage(id);
-  if (!message || message.organization_id !== organizationId) notFound();
+  const message = await getInboundMessage(id, { organizationId, markRead: true });
+  if (!message) notFound();
 
   return (
     <>

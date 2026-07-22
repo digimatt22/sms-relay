@@ -216,27 +216,77 @@ async function enqueueConsentResponse(input: {
   }
 }
 
-export async function listInboundMessages(options: { organizationId?: string } = {}) {
+export async function listInboundMessages(options: {
+  organizationId: string;
+  gatewayId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  sort?: "newest" | "oldest";
+}) {
   const values: unknown[] = [];
-  let where = "";
-  if (options.organizationId) {
-    values.push(options.organizationId);
-    where = `WHERE i.organization_id = $${values.length}`;
+  const clauses: string[] = [];
+  values.push(options.organizationId);
+  clauses.push(`i.organization_id = $${values.length}`);
+  if (options.gatewayId) {
+    values.push(options.gatewayId);
+    clauses.push(`i.gateway_id = $${values.length}`);
   }
+  if (options.fromDate) {
+    values.push(options.fromDate);
+    clauses.push(`i.received_at >= $${values.length}::date`);
+  }
+  if (options.toDate) {
+    values.push(options.toDate);
+    clauses.push(`i.received_at < ($${values.length}::date + interval '1 day')`);
+  }
+  const order = options.sort === "oldest" ? "ASC" : "DESC";
   const result = await query(
     `SELECT i.*, g.name AS gateway_name, m.id AS outbound_message_id
        FROM inbound_messages i
        LEFT JOIN gateways g ON g.id = i.gateway_id
        LEFT JOIN messages m ON m.id = i.matched_message_id
-      ${where}
-      ORDER BY i.created_at DESC
+      WHERE ${clauses.join(" AND ")}
+      ORDER BY i.received_at ${order}, i.created_at ${order}
       LIMIT 200`,
     values
   );
   return result.rows;
 }
 
-export async function getInboundMessage(id: string) {
+export async function listInboundGateways(organizationId: string) {
+  const result = await query(
+    `SELECT DISTINCT g.id, g.name
+       FROM inbound_messages i
+       JOIN gateways g ON g.id = i.gateway_id
+      WHERE i.organization_id = $1
+      ORDER BY g.name ASC`,
+    [organizationId]
+  );
+  return result.rows;
+}
+
+export async function countUnreadInboundMessages(organizationId: string, options: { excludeId?: string | null } = {}) {
+  const result = await query<{ count: number }>(
+    `SELECT COUNT(*)::int AS count
+       FROM inbound_messages
+      WHERE organization_id = $1
+        AND read_at IS NULL
+        AND ($2::uuid IS NULL OR id <> $2::uuid)`,
+    [organizationId, options.excludeId || null]
+  );
+  return Number(result.rows[0]?.count || 0);
+}
+
+export async function getInboundMessage(id: string, options: { organizationId: string; markRead?: boolean }) {
+  if (options.markRead) {
+    await query(
+      `UPDATE inbound_messages
+          SET read_at = COALESCE(read_at, now()), updated_at = now()
+        WHERE id = $1
+          AND organization_id = $2`,
+      [id, options.organizationId]
+    );
+  }
   const result = await query(
     `SELECT i.*, g.name AS gateway_name, m.id AS outbound_message_id,
             CASE
@@ -246,8 +296,9 @@ export async function getInboundMessage(id: string) {
        FROM inbound_messages i
        LEFT JOIN gateways g ON g.id = i.gateway_id
        LEFT JOIN messages m ON m.id = i.matched_message_id
-      WHERE i.id = $1`,
-    [id]
+      WHERE i.id = $1
+        AND i.organization_id = $2`,
+    [id, options.organizationId]
   );
   return result.rows[0] || null;
 }

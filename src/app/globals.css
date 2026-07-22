@@ -151,6 +151,21 @@ nav a,
   flex: 0 0 auto;
 }
 
+.nav-badge {
+  align-items: center;
+  background: #ef4444;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1;
+  margin-left: auto;
+  min-width: 19px;
+  padding: 4px 6px;
+}
+
 .support-link {
   background: var(--nav-panel);
 }
@@ -798,6 +813,35 @@ button.primary:hover {
   margin-top: -2px;
 }
 
+.inbox-filters {
+  margin-bottom: 16px;
+}
+
+.filter-form {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(140px, 1fr)) auto;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.inbox-unread td {
+  font-weight: 700;
+}
+
+.unread-dot {
+  background: #3b82f6;
+  border-radius: 999px;
+  display: inline-block;
+  height: 8px;
+  margin-right: 8px;
+  width: 8px;
+}
+
 input,
 textarea,
 select {
@@ -932,6 +976,15 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .filter-form {
+    align-items: stretch;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-actions {
+    grid-column: 1 / -1;
+  }
+
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -944,6 +997,15 @@ pre {
 
   .app-shell {
     display: block;
+  }
+
+  .filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-actions .button,
+  .filter-actions button {
+    flex: 1;
   }
 
   .sidebar {

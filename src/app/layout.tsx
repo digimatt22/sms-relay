@@ -21,6 +21,7 @@ import { logoutAction, switchOrganizationAction } from "@/app/actions";
 import { getCurrentOrganizationId, listOrganizationsForUser } from "@/lib/organizations";
 import { normalizeRole } from "@/lib/rbac";
 import { getPlatformName } from "@/lib/branding";
+import { countUnreadInboundMessages } from "@/lib/inbound";
 import "./globals.css";
 
 export function generateMetadata(): Metadata {
@@ -44,6 +45,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const currentOrganizationId = showAuthenticatedShell && session?.user
     ? await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role })
     : null;
+  const openedInboundId = /^\/inbox\/([0-9a-f-]{36})$/i.exec(pathname)?.[1] || null;
+  const unreadInboxCount = currentOrganizationId
+    ? await countUnreadInboundMessages(currentOrganizationId, { excludeId: openedInboundId })
+    : 0;
   const navGroups = [
     {
       label: "Operations",
@@ -110,6 +115,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                           <Link className="nav-link" href={item.href} key={`${group.label}-${item.label}`}>
                             <Icon size={16} strokeWidth={1.9} />
                             <span>{item.label}</span>
+                            {item.href === "/inbox" && unreadInboxCount > 0 ? (
+                              <span className="nav-badge" aria-label={`${unreadInboxCount} unread messages`}>
+                                {unreadInboxCount > 99 ? "99+" : unreadInboxCount}
+                              </span>
+                            ) : null}
                           </Link>
                         );
                       })}
