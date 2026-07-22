@@ -3,8 +3,9 @@ import Link from "next/link";
 import { Ban, Download, MessageCircleReply, RotateCcw, Send } from "lucide-react";
 import type { ReactNode } from "react";
 import { LocalDateTime } from "@/components/local-date-time";
+import { ConversationThread } from "@/app/messages/[id]/conversation-thread";
 import { requireAdminPage } from "@/lib/page-auth";
-import { getMessage } from "@/lib/messages";
+import { getMessage, listPhoneConversation } from "@/lib/messages";
 import { humanize } from "@/lib/format";
 import { cancelMessageAction, requeueMessageAction } from "@/app/actions";
 import { getCurrentOrganizationId } from "@/lib/organizations";
@@ -17,7 +18,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
   const organizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
   const { message, attempts } = await getMessage(id);
   if (!message || message.organization_id !== organizationId) notFound();
-  const [replies, callbacks] = await Promise.all([
+  const [replies, callbacks, conversation] = await Promise.all([
     query(
       `SELECT *
          FROM inbound_messages
@@ -33,7 +34,8 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
         ORDER BY created_at DESC
         LIMIT 10`,
       [message.id]
-    )
+    ),
+    listPhoneConversation(organizationId, message.to_number)
   ]);
   const canOperate = hasRole(session, "operator");
   const canCancel = canOperate && ["queued", "retry_scheduled", "claimed"].includes(message.status);
@@ -73,21 +75,37 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
       <div className="route-card-grid">
         <section className="panel">
           <h2>Conversation</h2>
-          <div className="conversation-thread">
-            <div className="conversation-bubble outbound">
-              <div className="conversation-label"><Send size={17} color="#009688" />Outbound <span className={`status ${message.status}`}>{humanize(message.status)}</span></div>
-              <div>{message.body}</div>
-              <div className="object-meta">To: {message.to_number_redacted} · Client: {message.api_client_name || humanize(message.submitted_via || "dashboard")}</div>
-            </div>
-            {replies.rows.map((reply: any) => (
-              <div className="conversation-bubble inbound" key={reply.id}>
-                <div className="conversation-label"><MessageCircleReply size={17} color="#2563eb" />Inbound <span className={`status ${reply.callback_status}`}>{humanize(reply.callback_status)}</span></div>
-                <div>{reply.body}</div>
-                <div className="object-meta">From: {reply.from_number_redacted} · <LocalDateTime value={reply.received_at} /></div>
-              </div>
-            ))}
-            {!replies.rows.length ? <p className="muted">No reply has been matched to this outbound message yet.</p> : null}
-          </div>
+          <p className="muted conversation-summary">All messages with {message.to_number_redacted}</p>
+          <ConversationThread>
+            {conversation.map((item: any) => {
+              const selected = item.direction === "outbound" && item.id === message.id;
+              return (
+                <div
+                  className={`conversation-bubble ${item.direction}${selected ? " selected" : ""}`}
+                  data-selected-message={selected ? "true" : undefined}
+                  key={`${item.direction}-${item.id}`}
+                >
+                  <div className="conversation-label">
+                    {item.direction === "outbound" ? <Send size={17} color="#009688" /> : <MessageCircleReply size={17} color="#2563eb" />}
+                    {item.direction === "outbound" ? "Outbound" : "Inbound"}
+                    <span className={`status ${item.direction === "outbound" ? item.status : item.callback_status}`}>
+                      {humanize(item.direction === "outbound" ? item.status : item.callback_status)}
+                    </span>
+                    {selected ? <span className="selected-message-label">Selected message</span> : null}
+                  </div>
+                  <div>{item.body}</div>
+                  <div className="object-meta">
+                    {item.direction === "outbound" ? (
+                      <>To: {item.to_number_redacted} · Client: {item.api_client_name || humanize(item.submitted_via || "dashboard")} · <LocalDateTime value={item.occurred_at} /></>
+                    ) : (
+                      <>From: {item.from_number_redacted} · Gateway: {item.gateway_name || "-"} · <LocalDateTime value={item.occurred_at} /></>
+                    )}
+                  </div>
+                  {item.direction === "outbound" && !selected ? <Link className="conversation-message-link" href={`/messages/${item.id}`}>Open message details</Link> : null}
+                </div>
+              );
+            })}
+          </ConversationThread>
         </section>
         <section className="panel">
           <h2>Message Lifecycle</h2>

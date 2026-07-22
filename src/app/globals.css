@@ -527,7 +527,15 @@ nav a:hover,
 .conversation-thread {
   display: grid;
   gap: 18px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding: 4px 8px 4px 4px;
   position: relative;
+  scroll-behavior: auto;
+}
+
+.conversation-summary {
+  margin: 4px 0 12px;
 }
 
 .conversation-bubble {
@@ -544,6 +552,27 @@ nav a:hover,
 
 .conversation-bubble.outbound {
   margin-right: 46px;
+}
+
+.conversation-bubble.selected {
+  background: #ecfdf5;
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+
+.selected-message-label {
+  background: var(--accent);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11px;
+  margin-left: auto;
+  padding: 4px 8px;
+}
+
+.conversation-message-link {
+  font-size: 12px;
+  font-weight: 700;
+  justify-self: start;
 }
 
 .conversation-label {

@@ -285,6 +285,43 @@ export async function getMessage(id: string, options: { apiClientId?: string | n
   return { message: message.rows[0] ? redactSensitiveMessage(message.rows[0]) : null, attempts: attempts.rows };
 }
 
+export async function listPhoneConversation(organizationId: string, phoneNumber: string) {
+  const [outbound, inbound] = await Promise.all([
+    query<any>(
+      `SELECT m.*, c.name AS api_client_name, g.name AS gateway_name
+         FROM messages m
+         LEFT JOIN api_clients c ON c.id = m.api_client_id
+         LEFT JOIN gateways g ON g.id = m.claim_gateway_id
+        WHERE m.organization_id = $1
+          AND m.to_number = $2
+        ORDER BY m.created_at ASC`,
+      [organizationId, phoneNumber]
+    ),
+    query<any>(
+      `SELECT i.*, g.name AS gateway_name
+         FROM inbound_messages i
+         LEFT JOIN gateways g ON g.id = i.gateway_id
+        WHERE i.organization_id = $1
+          AND i.from_number = $2
+        ORDER BY i.received_at ASC`,
+      [organizationId, phoneNumber]
+    )
+  ]);
+
+  return [
+    ...outbound.rows.map((row) => ({
+      ...redactSensitiveMessage(row),
+      direction: "outbound" as const,
+      occurred_at: row.created_at
+    })),
+    ...inbound.rows.map((row) => ({
+      ...row,
+      direction: "inbound" as const,
+      occurred_at: row.received_at
+    }))
+  ].sort((a, b) => new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime());
+}
+
 export async function claimNextMessage(gatewayId: string) {
   const debugBypassRecipientConsent = isRecipientConsentDebugBypassEnabled();
   return transaction(async (client: pg.PoolClient) => {
