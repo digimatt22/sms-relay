@@ -10,6 +10,7 @@ import { query } from "@/lib/db";
 import { accountHasRole, getAccountContext } from "@/lib/account-context";
 import { getCurrentOrganizationId, listOrganizationsForUser, listPendingUserInvitations } from "@/lib/organizations";
 import { requireAdminPage } from "@/lib/page-auth";
+import { getPublicAppUrl } from "@/lib/branding";
 
 export default async function ClientsAdminPage({
   searchParams
@@ -63,6 +64,9 @@ export default async function ClientsAdminPage({
     usersByClient.set(membership.organization_id, list);
   });
   const platformAdmin = session.user.role === "platform_admin";
+  const invitationUrl = sp.inviteToken
+    ? `${getPublicAppUrl()}/invitations/${encodeURIComponent(sp.inviteToken)}`
+    : null;
 
   return (
     <>
@@ -89,11 +93,11 @@ export default async function ClientsAdminPage({
         <MetricCard label="API apps" value={stats.rows.reduce((sum: number, row: any) => sum + row.api_app_count, 0)} note="Across visible clients" />
       </section>
 
-      {sp.inviteToken ? (
+      {invitationUrl ? (
         <section className="panel" style={{ marginBottom: 16 }}>
           <h2>Invitation created</h2>
           <p className="muted">Send this link to the user. It expires in 7 days.</p>
-          <pre>{`/invitations/${sp.inviteToken}`}</pre>
+          <pre>{invitationUrl}</pre>
         </section>
       ) : null}
 

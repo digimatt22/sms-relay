@@ -32,8 +32,8 @@ export default async function VerifyMobilePage({
       <form className="form" action={resendMobileVerificationAction}>
         <input type="hidden" name="email" value={email} />
         <button className="secondary-button" type="submit">Send another code</button>
-        <p className="muted"><Link href="/login">Back to sign in</Link></p>
       </form>
+      <p className="muted auth-footer"><Link href="/login">Back to sign in</Link></p>
     </section>
   );
 }

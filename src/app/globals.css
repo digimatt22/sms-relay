@@ -769,13 +769,21 @@ button.primary:hover {
 
 .form {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   max-width: 760px;
+}
+
+.form + .form {
+  margin-top: 12px;
+}
+
+.form > p {
+  margin: 0;
 }
 
 .field {
   display: grid;
-  gap: 6px;
+  gap: 7px;
 }
 
 .field label {
@@ -849,7 +857,16 @@ dd {
 }
 
 .login {
-  width: min(420px, 100%);
+  padding: 24px;
+  width: min(440px, 100%);
+}
+
+.login .page-header {
+  margin-bottom: 22px;
+}
+
+.login .auth-footer {
+  margin: 14px 0 0;
 }
 
 .error {

@@ -5,6 +5,7 @@ import { createUserInvitationAction } from "@/app/actions";
 import { getCurrentOrganizationId, listOrganizationsForUser } from "@/lib/organizations";
 import { requireRolePage } from "@/lib/page-auth";
 import { normalizeRole } from "@/lib/rbac";
+import { getPublicAppUrl } from "@/lib/branding";
 
 export default async function InviteClientUserPage({
   params,
@@ -22,6 +23,9 @@ export default async function InviteClientUserPage({
   const selectedOrganizationId = platformAdmin ? id : currentOrganizationId;
   const selectedClient = allowedOrganizations.find((organization: any) => organization.id === selectedOrganizationId);
   if (!selectedClient) notFound();
+  const invitationUrl = sp.inviteToken
+    ? `${getPublicAppUrl()}/invitations/${encodeURIComponent(sp.inviteToken)}`
+    : null;
 
   return (
     <>
@@ -33,11 +37,11 @@ export default async function InviteClientUserPage({
         </div>
       </header>
 
-      {sp.inviteToken ? (
+      {invitationUrl ? (
         <section className="panel" style={{ marginBottom: 16 }}>
           <h2>Invitation created</h2>
           <p className="muted">Send this link to the user. It expires in 7 days.</p>
-          <pre>{`/invitations/${sp.inviteToken}`}</pre>
+          <pre>{invitationUrl}</pre>
         </section>
       ) : null}
 
