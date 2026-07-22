@@ -75,3 +75,13 @@ test("a default DigiColony system messaging program is seeded", () => {
   assert.match(migration, /status, public_enrollment_enabled/);
   assert.match(migration, /'active', true/);
 });
+
+test("messaging program ownership is enforced by client at the database boundary", () => {
+  const migration = readFileSync("migrations/016_client_scoped_messaging_programs.sql", "utf8");
+  assert.match(migration, /UNIQUE \(id, organization_id\)/);
+  assert.match(migration, /FOREIGN KEY \(messaging_program_id, organization_id\)/);
+  assert.match(migration, /REFERENCES messaging_programs \(id, organization_id\)/);
+
+  const programs = readFileSync("src/lib/messaging-programs.ts", "utf8");
+  assert.match(programs, /approveMessagingProgram[\s\S]*organization_id = \$3/);
+});

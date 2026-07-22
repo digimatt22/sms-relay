@@ -523,7 +523,13 @@ export async function approveMessagingProgramAction(formData: FormData) {
   const { session, account } = await requireAccountActionRole("platform_admin");
   if (!account.isPlatformAdmin) redirect("/consent");
   const programId = String(formData.get("programId") || "");
-  if (programId) await approveMessagingProgram({ programId, approvedByUserId: session.user.id });
+  if (programId) {
+    await approveMessagingProgram({
+      programId,
+      organizationId: account.organizationId,
+      approvedByUserId: session.user.id
+    });
+  }
   revalidatePath("/consent");
   redirect("/consent");
 }

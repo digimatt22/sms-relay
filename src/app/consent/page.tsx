@@ -52,7 +52,7 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
         <div className="page-header" style={{ marginBottom: 12 }}>
           <div>
             <h2>Messaging Programs</h2>
-            <p className="muted">Each program fixes the sender identity, purpose, disclosure, and verification template.</p>
+            <p className="muted">Programs for {account.organizationName}. Each program fixes this client’s sender identity, purpose, disclosure, and verification template.</p>
           </div>
         </div>
         <table className="table">

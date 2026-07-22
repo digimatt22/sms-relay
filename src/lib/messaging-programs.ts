@@ -127,7 +127,7 @@ export async function createMessagingProgram(input: CreateMessagingProgramInput)
   });
 }
 
-export async function approveMessagingProgram(input: { programId: string; approvedByUserId: string }) {
+export async function approveMessagingProgram(input: { programId: string; organizationId: string; approvedByUserId: string }) {
   const result = await query(
     `UPDATE messaging_programs
         SET status = 'active',
@@ -135,9 +135,10 @@ export async function approveMessagingProgram(input: { programId: string; approv
             approved_at = now(),
             updated_at = now()
       WHERE id = $1
+        AND organization_id = $3
         AND status IN ('draft', 'pending_approval')
       RETURNING *`,
-    [input.programId, input.approvedByUserId]
+    [input.programId, input.approvedByUserId, input.organizationId]
   );
   return result.rows[0] || null;
 }
