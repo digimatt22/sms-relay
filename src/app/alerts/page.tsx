@@ -1,4 +1,5 @@
 import { generateAlertsAction, resolveAlertAction } from "@/app/actions";
+import { LocalDateTime } from "@/components/local-date-time";
 import { listAlerts } from "@/lib/alerts";
 import { humanize } from "@/lib/format";
 import { requireAdminPage } from "@/lib/page-auth";
@@ -47,7 +48,7 @@ export default async function AlertsPage() {
                   {alert.message}
                   {alert.details ? <pre>{JSON.stringify(alert.details, null, 2)}</pre> : null}
                 </td>
-                <td>{new Date(alert.opened_at).toLocaleString()}</td>
+                <td><LocalDateTime value={alert.opened_at} /></td>
                 <td>
                   {canOperate && alert.status === "open" ? (
                     <form action={resolveAlertAction}>

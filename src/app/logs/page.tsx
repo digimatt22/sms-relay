@@ -1,4 +1,5 @@
 import { requireAdminPage } from "@/lib/page-auth";
+import { LocalDateTime } from "@/components/local-date-time";
 import { query } from "@/lib/db";
 import { humanize } from "@/lib/format";
 import { getAccountContext } from "@/lib/account-context";
@@ -43,7 +44,7 @@ export default async function LogsPage() {
         <tbody>
           {logs.rows.map((log: any) => (
             <tr key={log.id}>
-              <td>{new Date(log.created_at).toLocaleString()}</td>
+              <td><LocalDateTime value={log.created_at} /></td>
               <td>{log.gateway_name || "-"}</td>
               <td>{log.level}</td>
               <td>{humanize(log.event_type)}</td>

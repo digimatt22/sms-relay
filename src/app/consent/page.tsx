@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react";
+import { LocalDateTime } from "@/components/local-date-time";
 import {
   approveMessagingProgramAction,
   createMessagingProgramAction,
@@ -141,7 +142,7 @@ export default async function RecipientConsentPage({ searchParams }: { searchPar
                 <td>{authorization.program_name}</td>
                 <td>{authorization.consent_source.replace(/_/g, " ")}</td>
                 <td><span className={`status ${authorization.status === "verified_authorized" ? "active" : authorization.status === "challenge_pending" ? "pending" : "disabled"}`}>{authorization.status.replace(/_/g, " ")}</span></td>
-                <td>{new Date(authorization.verified_at || authorization.requested_at).toLocaleString()}</td>
+                <td><LocalDateTime value={authorization.verified_at || authorization.requested_at} /></td>
                 <td>
                   {canManageConsent && authorization.status === "verified_authorized" ? (
                     <form action={revokeRecipientAuthorizationAction}>

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2, KeyRound, Plus, Send, ShieldCheck } from "lucide-react";
+import type { ReactNode } from "react";
 import { createApiClientKeyAction, updateApiClientLimitsAction } from "@/app/actions";
+import { LocalDateTime } from "@/components/local-date-time";
 import { query } from "@/lib/db";
 import { humanize } from "@/lib/format";
 import { getCurrentOrganizationId } from "@/lib/organizations";
@@ -161,7 +163,7 @@ export default async function ClientWorkspacePage({
                     <td><Link href={`/messages/${message.id}`}>{message.to_number_redacted}</Link></td>
                     <td>{message.gateway_name || "-"}</td>
                     <td>{message.attempt_count}</td>
-                    <td>{new Date(message.created_at).toLocaleString()}</td>
+                    <td><LocalDateTime value={message.created_at} /></td>
                   </tr>
                 ))}
                 {!messages.rows.length ? <tr><td colSpan={5}>No messages from this client yet.</td></tr> : null}
@@ -180,7 +182,7 @@ export default async function ClientWorkspacePage({
                   <div className="mobile-card-meta">
                     <span>Gateway: {message.gateway_name || "-"}</span>
                     <span>Attempts: {message.attempt_count}</span>
-                    <span>{new Date(message.created_at).toLocaleString()}</span>
+                    <span><LocalDateTime value={message.created_at} /></span>
                   </div>
                 </Link>
               ))}
@@ -199,7 +201,7 @@ export default async function ClientWorkspacePage({
                     <td>{reply.body}</td>
                     <td><Link href={`/messages/${reply.outbound_id}`}>{reply.outbound_id}</Link></td>
                     <td><span className={`status ${reply.callback_status}`}>{humanize(reply.callback_status)}</span></td>
-                    <td>{new Date(reply.received_at).toLocaleString()}</td>
+                    <td><LocalDateTime value={reply.received_at} /></td>
                   </tr>
                 ))}
                 {!inbound.rows.length ? <tr><td colSpan={5}>No matched replies yet.</td></tr> : null}
@@ -230,7 +232,7 @@ export default async function ClientWorkspacePage({
           <section className="panel">
             <h2>Integration health</h2>
             <div className="object-list">
-              <HealthRow label="API Key" detail={client.last_used_at ? `Last used ${new Date(client.last_used_at).toLocaleString()}` : "Ready"} />
+              <HealthRow label="API Key" detail={client.last_used_at ? <>Last used <LocalDateTime value={client.last_used_at} /></> : "Ready"} />
               <HealthRow label="Gateway access" detail={`${pools.rows.length} pools assigned`} />
               <HealthRow label="Callback endpoint" detail={callbacks.rows.length ? "Deliveries observed" : "Not configured"} />
               <HealthRow label="Limits" detail="Within thresholds" />
@@ -281,7 +283,7 @@ export default async function ClientWorkspacePage({
                       <strong>{key.label || "Unnamed key"}</strong>
                       <span className={`status ${key.status}`}>{humanize(key.status)}</span>
                     </div>
-                    <div className="object-meta">{key.api_key_prefix}... · Last used {key.last_used_at ? new Date(key.last_used_at).toLocaleString() : "never"}</div>
+                    <div className="object-meta">{key.api_key_prefix}... · Last used {key.last_used_at ? <LocalDateTime value={key.last_used_at} /> : "never"}</div>
                   </div>
                 </div>
               ))}
@@ -298,7 +300,7 @@ export default async function ClientWorkspacePage({
             ) : null}
             <dl>
               <dt>Last used</dt>
-              <dd>{client.last_used_at ? new Date(client.last_used_at).toLocaleString() : "-"}</dd>
+              <dd>{client.last_used_at ? <LocalDateTime value={client.last_used_at} /> : "-"}</dd>
             </dl>
             {canAdminClients ? (
               <form className="form" action={updateApiClientLimitsAction}>
@@ -331,7 +333,7 @@ function MetricCard({ label, value, note }: { label: string; value: string | num
   );
 }
 
-function HealthRow({ label, detail }: { label: string; detail: string }) {
+function HealthRow({ label, detail }: { label: string; detail: ReactNode }) {
   return (
     <div className="object-row">
       <div className="relationship-row">

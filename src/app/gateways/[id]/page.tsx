@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Activity, Download, Power, RadioTower, RotateCcw, Save, Wrench } from "lucide-react";
+import { LocalDateTime } from "@/components/local-date-time";
 import { requireAdminPage } from "@/lib/page-auth";
 import { query } from "@/lib/db";
 import { humanize } from "@/lib/format";
@@ -104,7 +105,7 @@ export default async function GatewayDetailPage({
             <dt>Carrier</dt><dd>{gatewayCarrierLabel(gateway.rows[0].carrier)}</dd>
             <dt>Serial Device</dt><dd>{health.rows[0]?.metrics?.serialDevice || "/dev/serial0"}</dd>
             <dt>Baud Rate</dt><dd>{health.rows[0]?.metrics?.serialBaudRate || "115200"}</dd>
-            <dt>Last heartbeat</dt><dd>{gateway.rows[0].last_heartbeat_at ? new Date(gateway.rows[0].last_heartbeat_at).toLocaleString() : "-"}</dd>
+            <dt>Last heartbeat</dt><dd>{gateway.rows[0].last_heartbeat_at ? <LocalDateTime value={gateway.rows[0].last_heartbeat_at} /> : "-"}</dd>
           </dl>
           {canOperate ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
@@ -165,7 +166,7 @@ export default async function GatewayDetailPage({
           <tbody>
             {commands.rows.map((command: any) => (
               <tr key={command.id}>
-                <td>{new Date(command.requested_at).toLocaleString()}</td>
+                <td><LocalDateTime value={command.requested_at} /></td>
                 <td>{humanize(command.command_type)}</td>
                 <td><span className={`status ${command.status}`}>{humanize(command.status)}</span></td>
                 <td>{command.result ? <pre>{JSON.stringify(command.result, null, 2)}</pre> : "-"}</td>
@@ -233,7 +234,7 @@ export default async function GatewayDetailPage({
                   <td>{log.level}</td>
                   <td>{humanize(log.event_type)}</td>
                   <td>{log.message}</td>
-                  <td>{new Date(log.created_at).toLocaleString()}</td>
+                  <td><LocalDateTime value={log.created_at} /></td>
                 </tr>
               ))}
             </tbody>

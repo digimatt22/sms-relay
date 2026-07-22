@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LocalDateTime } from "@/components/local-date-time";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/page-auth";
 import { getInboundMessage } from "@/lib/inbound";
@@ -29,7 +30,7 @@ export default async function InboundMessagePage({ params }: { params: Promise<{
             <dt>From</dt>
             <dd>{message.from_number_redacted}</dd>
             <dt>Received</dt>
-            <dd>{new Date(message.received_at).toLocaleString()}</dd>
+            <dd><LocalDateTime value={message.received_at} /></dd>
             <dt>Modem index</dt>
             <dd>{message.modem_index ?? "-"}</dd>
             <dt>Body</dt>

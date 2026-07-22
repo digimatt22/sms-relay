@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LocalDateTime } from "@/components/local-date-time";
 import { requireAdminPage } from "@/lib/page-auth";
 import { listInboundGateways, listInboundMessages } from "@/lib/inbound";
 import { humanize } from "@/lib/format";
@@ -93,7 +94,7 @@ export default async function InboxPage({
               <td>{message.body}</td>
               <td>{message.gateway_name || "-"}</td>
               <td><span className={`status ${message.callback_status}`}>{humanize(message.callback_status)}</span></td>
-              <td>{new Date(message.received_at).toLocaleString()}</td>
+              <td><LocalDateTime value={message.received_at} /></td>
             </tr>
           ))}
           {!messages.length ? (

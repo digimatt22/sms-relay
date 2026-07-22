@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Send } from "lucide-react";
+import { LocalDateTime } from "@/components/local-date-time";
 import { query } from "@/lib/db";
 import { humanize } from "@/lib/format";
 import { effectiveGatewayStatus } from "@/lib/gateway-status";
@@ -120,7 +121,7 @@ export default async function CommandCenterPage() {
                     <td><Link href={`/messages/${message.id}`}>{message.to_number_redacted}</Link></td>
                     <td>{message.api_client_name || humanize(message.submitted_via || "dashboard")}</td>
                     <td>{message.gateway_name || "-"}</td>
-                    <td>{new Date(message.created_at).toLocaleString()}</td>
+                    <td><LocalDateTime value={message.created_at} /></td>
                   </tr>
                 ))}
                 {!recentMessages.rows.length ? <tr><td colSpan={5}>No outbound messages yet.</td></tr> : null}
@@ -139,7 +140,7 @@ export default async function CommandCenterPage() {
                   <div className="mobile-card-meta">
                     <span>Source: {message.api_client_name || humanize(message.submitted_via || "dashboard")}</span>
                     <span>Gateway: {message.gateway_name || "-"}</span>
-                    <span>{new Date(message.created_at).toLocaleString()}</span>
+                    <span><LocalDateTime value={message.created_at} /></span>
                   </div>
                 </Link>
               ))}

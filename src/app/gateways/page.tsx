@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus, RadioTower, RefreshCw } from "lucide-react";
+import { LocalDateTime } from "@/components/local-date-time";
 import { requireAdminPage } from "@/lib/page-auth";
 import { query } from "@/lib/db";
 import { createGatewayAction } from "@/app/actions";
@@ -57,7 +58,8 @@ export default async function GatewaysPage() {
     [organizationId]
   );
   const activity = await query(
-    `SELECT COUNT(*) FILTER (WHERE created_at >= now() - interval '24 hours')::int AS messages_24h,
+    `SELECT now() AS rendered_at,
+            COUNT(*) FILTER (WHERE created_at >= now() - interval '24 hours')::int AS messages_24h,
             COUNT(*) FILTER (WHERE status = 'carrier_submitted' AND created_at >= now() - interval '24 hours')::int AS submitted_24h
        FROM messages
       WHERE organization_id = $1`,
@@ -84,7 +86,7 @@ export default async function GatewaysPage() {
           <p>Real-time view of SMS infrastructure and message flow</p>
         </div>
         <div className="actions-row">
-          <span className="muted">Last updated: {new Date().toLocaleTimeString()}</span>
+          <span className="muted">Last updated: <LocalDateTime value={activity.rows[0].rendered_at} /></span>
           <Link className="button secondary" href="/gateways"><RefreshCw size={16} />Auto-refresh</Link>
         </div>
       </header>
@@ -154,7 +156,7 @@ export default async function GatewaysPage() {
                   )}
                   <div className="object-meta">{gatewayCarrierLabel(gateway.carrier)}</div>
                 </td>
-                <td>{gateway.last_heartbeat_at ? new Date(gateway.last_heartbeat_at).toLocaleString() : "-"}</td>
+                <td>{gateway.last_heartbeat_at ? <LocalDateTime value={gateway.last_heartbeat_at} /> : "-"}</td>
                 <td>
                   <div className="relationship-row">
                     <SignalBars />
@@ -182,7 +184,7 @@ export default async function GatewaysPage() {
                 </span>
               </div>
               <div className="mobile-card-meta">
-                <span>Heartbeat: {gateway.last_heartbeat_at ? new Date(gateway.last_heartbeat_at).toLocaleString() : "-"}</span>
+                <span>Heartbeat: {gateway.last_heartbeat_at ? <LocalDateTime value={gateway.last_heartbeat_at} /> : "-"}</span>
                 <span>Signal: {formatSignal(gateway.latest_metrics?.signalQuality)}</span>
               </div>
             </Link>
@@ -283,13 +285,12 @@ function formatSignal(signal: any) {
 
 function QueueLane({ label, status, row }: { label: string; status: string; row?: any }) {
   const count = Number(row?.count || 0);
-  const oldest = row?.oldest_created_at ? new Date(row.oldest_created_at).toLocaleString() : "-";
   const chipClass = status === "dead_lettered" ? "chip bad" : status === "retry_scheduled" ? "chip warn" : "chip";
   return (
     <tr>
       <td><span className={chipClass}>{label}</span></td>
       <td>{count}</td>
-      <td>{oldest}</td>
+      <td>{row?.oldest_created_at ? <LocalDateTime value={row.oldest_created_at} /> : "-"}</td>
     </tr>
   );
 }

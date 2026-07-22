@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Building2, Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
+import { LocalDateTime } from "@/components/local-date-time";
 import {
   removeOrganizationMembershipAction,
   resendUserInvitationAction,
@@ -226,7 +227,7 @@ export default async function ClientsAdminPage({
                 <td>{invitation.role}</td>
                 <td>
                   <span className="chip warn">Pending invite</span>
-                  <div className="object-meta">Expires {new Date(invitation.expires_at).toLocaleString()}</div>
+                  <div className="object-meta">Expires <LocalDateTime value={invitation.expires_at} /></div>
                 </td>
                 <td>
                   {canManageUsers ? (

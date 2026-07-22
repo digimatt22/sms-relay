@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Ban, Download, MessageCircleReply, RotateCcw, Send } from "lucide-react";
+import type { ReactNode } from "react";
+import { LocalDateTime } from "@/components/local-date-time";
 import { requireAdminPage } from "@/lib/page-auth";
 import { getMessage } from "@/lib/messages";
 import { humanize } from "@/lib/format";
@@ -43,7 +45,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
         <div>
           <p className="muted"><Link href="/messages">Back to Messages</Link></p>
           <h1>Message {message.id}</h1>
-          <p>Created {new Date(message.created_at).toLocaleString()} · Source: {message.api_client_name || humanize(message.submitted_via || "dashboard")}</p>
+          <p>Created <LocalDateTime value={message.created_at} /> · Source: {message.api_client_name || humanize(message.submitted_via || "dashboard")}</p>
         </div>
         <div className="actions-row">
           <span className={`status ${message.status}`}>{humanize(message.status)}</span>
@@ -81,7 +83,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
               <div className="conversation-bubble inbound" key={reply.id}>
                 <div className="conversation-label"><MessageCircleReply size={17} color="#2563eb" />Inbound <span className={`status ${reply.callback_status}`}>{humanize(reply.callback_status)}</span></div>
                 <div>{reply.body}</div>
-                <div className="object-meta">From: {reply.from_number_redacted} · {new Date(reply.received_at).toLocaleString()}</div>
+                <div className="object-meta">From: {reply.from_number_redacted} · <LocalDateTime value={reply.received_at} /></div>
               </div>
             ))}
             {!replies.rows.length ? <p className="muted">No reply has been matched to this outbound message yet.</p> : null}
@@ -90,12 +92,12 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
         <section className="panel">
           <h2>Message Lifecycle</h2>
           <div className="timeline">
-            <TimelineItem title="Created" detail={new Date(message.created_at).toLocaleString()} state="success" />
+            <TimelineItem title="Created" detail={<LocalDateTime value={message.created_at} />} state="success" />
             {attempts.map((attempt: any) => (
               <TimelineItem
                 key={attempt.id}
                 title={`Attempt ${attempt.attempt_number}: ${humanize(attempt.status)}`}
-                detail={`${attempt.gateway_name || "Unknown gateway"} · ${attempt.error_message || attempt.error_code || new Date(attempt.started_at).toLocaleString()}`}
+                detail={<>{attempt.gateway_name || "Unknown gateway"} · {attempt.error_message || attempt.error_code || <LocalDateTime value={attempt.started_at} />}</>}
                 state={attempt.status === "carrier_submitted" ? "success" : attempt.status === "failed" ? "problem" : undefined}
               />
             ))}
@@ -117,7 +119,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
             <dt>To</dt><dd>{message.to_number_redacted}</dd>
             <dt>Gateway Used</dt><dd>{message.gateway_name || message.claim_gateway_id || "-"}</dd>
             <dt>Final Status</dt><dd><span className={`status ${message.status}`}>{humanize(message.status)}</span></dd>
-            <dt>Last Attempt</dt><dd>{attempts[0]?.started_at ? new Date(attempts[0].started_at).toLocaleString() : "-"}</dd>
+            <dt>Last Attempt</dt><dd>{attempts[0]?.started_at ? <LocalDateTime value={attempts[0].started_at} /> : "-"}</dd>
           </dl>
         </section>
         <section className="panel">
@@ -148,7 +150,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
                 <td>{humanize(attempt.status)}</td>
                 <td>{attempt.gateway_name}</td>
                 <td>{attempt.error_message || attempt.error_code || "-"}</td>
-                <td>{new Date(attempt.started_at).toLocaleString()}</td>
+                <td><LocalDateTime value={attempt.started_at} /></td>
               </tr>
             ))}
             {!attempts.length ? <tr><td colSpan={5}>No attempts yet.</td></tr> : null}
@@ -166,7 +168,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
                   <td>{reply.from_number_redacted}</td>
                   <td>{reply.body}</td>
                   <td><span className={`status ${reply.callback_status}`}>{humanize(reply.callback_status)}</span></td>
-                  <td>{new Date(reply.received_at).toLocaleString()}</td>
+                  <td><LocalDateTime value={reply.received_at} /></td>
                 </tr>
               ))}
               {!replies.rows.length ? <tr><td colSpan={4}>No replies matched yet.</td></tr> : null}
@@ -223,7 +225,7 @@ function MetricCard({ label, value, note }: { label: string; value: string | num
   );
 }
 
-function TimelineItem({ title, detail, state }: { title: string; detail: string; state?: "success" | "problem" }) {
+function TimelineItem({ title, detail, state }: { title: string; detail: ReactNode; state?: "success" | "problem" }) {
   return (
     <div className={`timeline-item ${state || ""}`}>
       <div className="timeline-title">{title}</div>

@@ -1,4 +1,5 @@
 import { processCallbacksAction, retryCallbackAction } from "@/app/actions";
+import { LocalDateTime } from "@/components/local-date-time";
 import { listCallbackDeliveries } from "@/lib/callbacks";
 import { humanize } from "@/lib/format";
 import { getCurrentOrganizationId } from "@/lib/organizations";
@@ -45,7 +46,7 @@ export default async function CallbacksPage() {
                 <td>{humanize(delivery.event_type)}</td>
                 <td>{delivery.to_number_redacted || delivery.from_number_redacted || "-"}</td>
                 <td>{delivery.attempt_count}</td>
-                <td>{delivery.next_attempt_at ? new Date(delivery.next_attempt_at).toLocaleString() : "-"}</td>
+                <td>{delivery.next_attempt_at ? <LocalDateTime value={delivery.next_attempt_at} /> : "-"}</td>
                 <td>
                   {delivery.last_http_status || "-"}
                   {delivery.last_response ? <span className="muted"> {String(delivery.last_response).slice(0, 80)}</span> : null}

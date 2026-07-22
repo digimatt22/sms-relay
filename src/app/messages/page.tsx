@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type React from "react";
+import { LocalDateTime } from "@/components/local-date-time";
 import { requireAdminPage } from "@/lib/page-auth";
 import { listMessages } from "@/lib/messages";
 import { humanize } from "@/lib/format";
@@ -76,7 +77,7 @@ export default async function MessagesPage({
                 <td>{message.api_client_name || humanize(message.submitted_via || "dashboard")}</td>
                 <td>{message.gateway_name || "-"}</td>
                 <td>{message.attempt_count}</td>
-                <td>{new Date(message.created_at).toLocaleString()}</td>
+                <td><LocalDateTime value={message.created_at} /></td>
               </ClickableMessageRow>
             ))}
             {!messages.length ? (
@@ -99,7 +100,7 @@ export default async function MessagesPage({
               <span>Source: {message.api_client_name || humanize(message.submitted_via || "dashboard")}</span>
               <span>Gateway: {message.gateway_name || "-"}</span>
               <span>Attempts: {message.attempt_count}</span>
-              <span>{new Date(message.created_at).toLocaleString()}</span>
+              <span><LocalDateTime value={message.created_at} /></span>
             </div>
           </Link>
         ))}
