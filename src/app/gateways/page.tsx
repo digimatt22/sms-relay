@@ -60,7 +60,7 @@ export default async function GatewaysPage() {
   const activity = await query(
     `SELECT now() AS rendered_at,
             COUNT(*) FILTER (WHERE created_at >= now() - interval '24 hours')::int AS messages_24h,
-            COUNT(*) FILTER (WHERE status = 'carrier_submitted' AND created_at >= now() - interval '24 hours')::int AS submitted_24h
+            COUNT(*) FILTER (WHERE status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown') AND created_at >= now() - interval '24 hours')::int AS submitted_24h
        FROM messages
       WHERE organization_id = $1`,
     [organizationId]

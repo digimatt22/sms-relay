@@ -17,7 +17,7 @@ export default async function CommandCenterPage() {
     query(
       `SELECT
          COUNT(*) FILTER (WHERE status IN ('queued', 'retry_scheduled', 'claimed', 'sending'))::int AS active_queue,
-         COUNT(*) FILTER (WHERE status = 'carrier_submitted' AND created_at >= now() - interval '24 hours')::int AS submitted_24h,
+         COUNT(*) FILTER (WHERE status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown') AND created_at >= now() - interval '24 hours')::int AS submitted_24h,
          COUNT(*) FILTER (WHERE status IN ('failed', 'dead_lettered') AND created_at >= now() - interval '24 hours')::int AS problem_24h,
          COUNT(*) FILTER (WHERE status = 'dead_lettered')::int AS dead_lettered
        FROM messages
@@ -44,7 +44,7 @@ export default async function CommandCenterPage() {
       `SELECT COALESCE(c.name, 'Dashboard') AS source,
               COALESCE(c.id::text, 'dashboard') AS source_id,
               COUNT(m.id) FILTER (WHERE m.created_at >= now() - interval '24 hours')::int AS messages_24h,
-              COUNT(m.id) FILTER (WHERE m.status = 'carrier_submitted' AND m.created_at >= now() - interval '24 hours')::int AS submitted_24h,
+              COUNT(m.id) FILTER (WHERE m.status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown') AND m.created_at >= now() - interval '24 hours')::int AS submitted_24h,
               COUNT(m.id) FILTER (WHERE m.status IN ('failed', 'dead_lettered') AND m.created_at >= now() - interval '24 hours')::int AS problem_24h
          FROM messages m
          LEFT JOIN api_clients c ON c.id = m.api_client_id

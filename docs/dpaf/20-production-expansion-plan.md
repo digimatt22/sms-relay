@@ -229,10 +229,20 @@ Implemented in the current workspace:
 - Time-limited dashboard user invitation flow with recipient password setup.
 - Focused regression tests for scoped idempotency, opt-outs, pool-aware claims, key-table auth, callback retries, and telemetry retention.
 - Customer-facing webhook integration guide.
+- First-class API-key-owned conversation threads with external workflow correlation and inbound timelines.
+- API-key-owned webhook subscriptions, append-only versioned platform events, per-subscription signatures, and a complete lifecycle event catalog.
+- SIM7070 delivery-report requests, modem message-reference capture, gateway report ingestion, durable receipt evidence, and normalized handset-delivery states.
+- Delivery-state and receipt visibility in message details, plus automatic conversion of stale carrier submissions to delivery-unknown.
+- Deep differentiation, production-gap, rollout, and live cost-comparison artifacts in documents 27 and 28.
 - Backup, restore, deployment, and appliance update runbook.
 - Automated production deploy check script for typecheck, tests, hub build, gateway build, and gateway package.
 
 Remaining production-hardening work:
+- Production-eligible carrier/A2P agreement; the current Tello plan is for lab use only under its published terms.
+- Real-carrier `+CDS` qualification and `+CDSI` stored-report fallback across the selected SIM/modem firmware matrix.
+- Webhook test delivery, secret rotation, DNS rebinding protection, dead-letter replay, and supervised recurring delivery worker.
+- OpenAPI/JSON Schema publication and SwimSense/Stratus consumer contract tests.
+- Per-client body retention/encryption and fleet/load/failure qualification.
 - SMTP delivery for invitation links instead of dashboard copy/paste.
 - Hosted CI/CD wiring for `npm run deploy:check` and environment-specific migration approval.
 

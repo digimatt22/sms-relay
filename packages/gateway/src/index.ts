@@ -175,7 +175,7 @@ async function processOne() {
   try {
     const result = await sendSmsWithRecovery(message.to_number, message.body, message.id);
     if (!result.submitted) throw new Error(result.response);
-    await reportSubmittedWithRetry(message.id, attempt.id, result.response);
+    await reportSubmittedWithRetry(message.id, attempt.id, result.response, result.messageReference);
     recordModemSuccess();
     log("info", "message_submitted", `Carrier submitted message ${message.id}`, {
       messageId: message.id,
@@ -210,11 +210,11 @@ async function processOne() {
   }
 }
 
-async function reportSubmittedWithRetry(messageId: string, attemptId: string, modemResponse: string) {
+async function reportSubmittedWithRetry(messageId: string, attemptId: string, modemResponse: string, modemMessageReference?: number) {
   let lastError: unknown;
   for (let attempt = 1; attempt <= 12; attempt += 1) {
     try {
-      await api.markSubmitted(messageId, attemptId, modemResponse);
+      await api.markSubmitted(messageId, attemptId, modemResponse, modemMessageReference);
       return;
     } catch (error) {
       lastError = error;
@@ -227,6 +227,17 @@ async function reportSubmittedWithRetry(messageId: string, attemptId: string, mo
   }
 
   throw lastError instanceof Error ? lastError : new Error(String(lastError || "Failed to report submitted message"));
+}
+
+async function processDeliveryReports() {
+  if (!modem.listDeliveryReports) return;
+  const reports = await modem.listDeliveryReports();
+  if (!reports.length) return;
+  const result = await api.ingestDeliveryReports(reports);
+  log("info", "delivery_reports_uploaded", `Uploaded ${result.receipts.length} SMS delivery report(s)`, {
+    count: result.receipts.length,
+    matched: result.receipts.filter((receipt) => receipt.matched).length
+  });
 }
 
 async function sendSmsWithRecovery(to: string, body: string, messageId: string) {
@@ -430,6 +441,11 @@ async function main() {
       log("warn", "inbound_poll_failed", errorMessage, {
         nextAttemptSeconds: backoffSeconds
       });
+    }
+    try {
+      await processDeliveryReports();
+    } catch (error) {
+      log("warn", "delivery_report_upload_failed", error instanceof Error ? error.message : String(error));
     }
     await sleep(config.pollSeconds * 1000);
   }

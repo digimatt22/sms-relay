@@ -38,8 +38,8 @@ export class RelayHubApi {
     return response.attempt;
   }
 
-  async markSubmitted(messageId: string, attemptId: string, modemResponse: string) {
-    return this.post(`/api/gateway/messages/${messageId}/attempts/${attemptId}/submitted`, { modemResponse });
+  async markSubmitted(messageId: string, attemptId: string, modemResponse: string, modemMessageReference?: number) {
+    return this.post(`/api/gateway/messages/${messageId}/attempts/${attemptId}/submitted`, { modemResponse, modemMessageReference });
   }
 
   async markFailed(messageId: string, attemptId: string, errorMessage: string, context: Json = {}) {
@@ -63,6 +63,20 @@ export class RelayHubApi {
         }
       }))
     });
+  }
+
+  async ingestDeliveryReports(reports: Array<{
+    messageReference: number;
+    recipient?: string;
+    serviceCenterTimestamp?: string;
+    dischargeTime?: string;
+    statusCode: number;
+    normalizedStatus: string;
+    rawReport: string;
+    receivedAt: string;
+  }>) {
+    if (!reports.length) return { receipts: [] };
+    return this.post<{ receipts: Array<{ id: string; matched: boolean }> }>("/api/gateway/delivery-reports", { reports });
   }
 
   async claimCommands() {

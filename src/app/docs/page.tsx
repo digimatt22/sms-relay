@@ -10,6 +10,11 @@ const clientEndpoints = [
   ["POST", "/api/recipient-authorizations/{authorizationId}/confirm", "Client API key or admin session", "Verify the recipient-supplied six-digit code."],
   ["POST", "/api/recipient-authorizations/{authorizationId}/resend", "Client API key or admin session", "Resend after the cooldown, subject to limits."],
   ["POST", "/api/recipient-authorizations/{authorizationId}/revoke", "Client API key or admin session", "Revoke and suppress ordinary messages for the client."],
+  ["GET / POST", "/api/webhook-subscriptions", "Client API key", "List or create subscriptions owned by this exact API key."],
+  ["DELETE", "/api/webhook-subscriptions/{subscriptionId}", "Client API key", "Disable a subscription owned by this exact API key."],
+  ["GET / POST", "/api/conversations", "Client API key", "List or open first-class conversation threads for this key."],
+  ["GET / DELETE", "/api/conversations/{conversationId}", "Client API key", "Read the timeline or close a thread owned by this key."],
+  ["POST", "/api/conversations/{conversationId}/messages", "Client API key", "Send in an existing conversation."],
   ["POST", "/api/messages", "Client API key or admin session", "Queue an authorized outbound SMS message."],
   ["GET", "/api/messages/{messageId}", "Client API key or admin session", "Read one outbound message with attempts."],
   ["POST", "/api/messages/{messageId}/cancel", "Client API key or admin session", "Cancel a queued, retry-scheduled, or claimed message."],
@@ -47,6 +52,7 @@ const gatewayEndpoints = [
   ["POST", "/api/gateway/messages/{messageId}/attempts/{attemptId}/submitted", "Gateway API key", "Mark a message as carrier-submitted."],
   ["POST", "/api/gateway/messages/{messageId}/attempts/{attemptId}/failed", "Gateway API key", "Report a send failure and schedule retry/dead-letter handling."],
   ["POST", "/api/gateway/inbound", "Gateway API key", "Upload received SMS messages and trigger reply callbacks."],
+  ["POST", "/api/gateway/delivery-reports", "Gateway API key", "Upload modem delivery reports and normalize final handset delivery state."],
   ["POST", "/api/gateway/commands/claim", "Gateway API key", "Claim queued commands such as diagnostics or modem reset."],
   ["POST", "/api/gateway/commands/{commandId}/complete", "Gateway API key", "Report command completion or failure."]
 ];
@@ -56,7 +62,10 @@ const statuses = [
   ["claimed", "Reserved by one gateway for a short claim window."],
   ["sending", "Gateway started a modem send attempt."],
   ["retry_scheduled", "Send failed and will be retried after backoff."],
-  ["carrier_submitted", "Modem returned carrier submission success. This is MVP delivery success."],
+  ["carrier_submitted", "The modem accepted the message and returned a carrier message reference; handset delivery is not yet known."],
+  ["delivery_confirmed", "The carrier reported successful delivery to the handset."],
+  ["delivery_failed", "The carrier reported that handset delivery failed."],
+  ["delivery_unknown", "No conclusive delivery report arrived within the platform window."],
   ["dead_lettered", "Retries are exhausted and operator review is required."],
   ["canceled", "Canceled before carrier submission."]
 ];
@@ -109,9 +118,10 @@ export default async function ApiDocsPage() {
             <DocFact label="Auth" value="Bearer API key" />
             <DocFact label="Content type" value="application/json" />
             <DocFact label="Phone format" value="E.164 preferred; common US formats accepted" />
-            <DocFact label="MVP success" value="carrier_submitted" />
+            <DocFact label="Submission" value="carrier_submitted" />
+            <DocFact label="Handset delivery" value="delivery_confirmed, when the carrier provides a report" />
             <DocFact label="Consent" value="Required for ordinary messages" />
-            <DocFact label="Callbacks" value="Per-message or authorization callbackUrl" />
+            <DocFact label="Webhooks" value="Subscriptions are isolated to the exact API key" />
           </div>
         </aside>
       </div>
@@ -198,7 +208,9 @@ curl -X POST ${baseUrl}/api/recipient-authorizations/{authorizationId}/confirm \
           ["scheduledAt", "ISO datetime", "No", "Delay sending until this time."],
           ["idempotencyKey", "string", "Recommended", "Prevents duplicate logical submissions per client."],
           ["metadata", "object", "No", "Flexible JSON for customer IDs, workflow IDs, or campaign data."],
-          ["callbackUrl", "URL", "No", "Receives inbound reply callbacks for replies matched to this outbound message."]
+          ["callbackUrl", "URL", "No", "Receives inbound reply callbacks for replies matched to this outbound message."],
+          ["conversationId", "UUID", "No", "Send within an existing open conversation owned by this API key."],
+          ["externalConversationReference", "string", "No", "Create or correlate the key-owned conversation to a SwimSense/Stratus workflow ID."]
         ]} />
         <h3>Response</h3>
         <CodeBlock>{`{
@@ -296,25 +308,50 @@ curl -X POST ${baseUrl}/api/messages/{messageId}/requeue \\
       </section>
 
       <section className="panel" style={{ marginTop: 16 }}>
-        <h2>Callbacks and Replies</h2>
+        <h2>Conversation Threads and Key-level Webhooks</h2>
         <p>
-          Add <code>callbackUrl</code> when creating a message to receive inbound replies matched to that outbound message.
-          {platformName} matches replies by client, phone number, carrier-submitted outbound status, and the most recent submitted message within the matching window.
+          Every API-originated message belongs to a conversation owned by the exact API key that sent it. Replies are matched by gateway,
+          participant, and recent submitted conversation, then appear in the conversation timeline and in subscribed webhook events.
         </p>
+        <CodeBlock>{`# Subscribe this API key to its events
+curl -X POST ${baseUrl}/api/webhook-subscriptions \\
+  -H "Authorization: Bearer rhc_your_api_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "callbackUrl": "https://api.swimsense.example/webhooks/digicolony",
+    "description": "SwimSense production sync",
+    "eventTypes": ["sms.inbound.received", "sms.outbound.delivery_confirmed", "sms.outbound.delivery_failed"]
+  }'
+
+# Open a thread linked to a client workflow
+curl -X POST ${baseUrl}/api/conversations \\
+  -H "Authorization: Bearer rhc_your_api_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "to": "+13213609348",
+    "programId": "11111111-1111-4111-8111-111111111111",
+    "externalReference": "pool-alert-8821"
+  }'`}</CodeBlock>
+        <p>Subscription creation returns a signing secret. Store it securely and verify every delivery. The envelope is stable and versioned:</p>
         <CodeBlock>{`{
-  "event": "sms.inbound.received",
-  "inboundMessageId": "in_7b2a1f9c",
-  "matchedOutboundMessageId": "ea90f927-dacc-45fa-9542-c6ecb0994ee2",
-  "gatewayId": "126d6be7-5743-4626-bb15-bd54e3d5e1e3",
-  "from": "+13213609348",
-  "fromRedacted": "***-***-9348",
-  "body": "YES",
-  "receivedAt": "2026-07-11T20:17:04.000Z",
-  "metadata": {}
+  "id": "event-uuid",
+  "type": "sms.inbound.received",
+  "schemaVersion": "2026-07-22",
+  "occurredAt": "2026-07-22T20:17:04.000Z",
+  "organizationId": "organization-uuid",
+  "apiClientId": "application-uuid",
+  "apiClientKeyId": "exact-key-uuid",
+  "messageId": "matched-outbound-uuid",
+  "conversationId": "conversation-uuid",
+  "inboundMessageId": "inbound-uuid",
+  "recipientAuthorizationId": null,
+  "data": {
+    "conversation": { "externalReference": "pool-alert-8821" },
+    "inboundMessage": { "from": "+13213609348", "body": "I can visit Friday at 2" }
+  }
 }`}</CodeBlock>
         <p className="muted">
-          If <code>RELAYHUB_WEBHOOK_SECRET</code> is configured, callbacks include
-          <code> x-relayhub-timestamp</code> and <code> x-relayhub-signature</code>.
+          Webhooks include <code>x-relayhub-timestamp</code>, <code>x-relayhub-signature</code>, and a delivery ID.
           Verify the signature as HMAC-SHA256 of <code>timestamp.body</code>.
         </p>
       </section>

@@ -22,7 +22,9 @@ export const messageCreateSchema = z.object({
   scheduledAt: z.string().datetime().optional().nullable(),
   idempotencyKey: z.string().min(1).max(200).optional().nullable(),
   metadata: z.record(z.unknown()).default({}),
-  callbackUrl: z.string().url().optional().nullable()
+  callbackUrl: z.string().url().optional().nullable(),
+  conversationId: z.string().uuid().optional().nullable(),
+  externalConversationReference: z.string().min(1).max(200).optional().nullable()
 });
 
 export const recipientAuthorizationRequestSchema = z.object({
@@ -112,4 +114,17 @@ export const inboundSmsSchema = z.object({
       metadata: z.record(z.unknown()).default({})
     })
   )
+});
+
+export const deliveryReportsSchema = z.object({
+  reports: z.array(z.object({
+    messageReference: z.number().int().min(0).max(255),
+    recipient: z.string().optional(),
+    serviceCenterTimestamp: z.string().datetime().optional(),
+    dischargeTime: z.string().datetime().optional(),
+    statusCode: z.number().int().min(0).max(255),
+    normalizedStatus: z.enum(["delivered", "pending", "undelivered", "unknown"]),
+    rawReport: z.string().min(1).max(4000),
+    receivedAt: z.string().datetime()
+  })).min(1).max(100)
 });

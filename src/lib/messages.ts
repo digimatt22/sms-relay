@@ -7,6 +7,7 @@ import { redactPhone } from "@/lib/security";
 import type { MessageStatus } from "@/lib/types";
 import { redactSensitiveMessage } from "@/lib/sensitive-messages";
 import { isRecipientConsentDebugBypassEnabled } from "@/lib/debug-flags";
+import { ensureConversationInTransaction } from "@/lib/conversations";
 
 export async function createMessage(input: {
   to: string;
@@ -18,6 +19,7 @@ export async function createMessage(input: {
   callbackUrl?: string | null;
   userId?: string | null;
   apiClientId?: string | null;
+  apiClientKeyId?: string | null;
   submittedVia?: "dashboard" | "api";
   organizationId?: string;
   messagingProgramId?: string | null;
@@ -25,6 +27,8 @@ export async function createMessage(input: {
   messageCategory?: "ordinary" | "verification" | "security" | "opt_out_confirmation";
   authorizationExempt?: boolean;
   requiredGatewayId?: string | null;
+  conversationThreadId?: string | null;
+  externalConversationReference?: string | null;
 }) {
   const to = normalizePhoneNumber(input.to);
   const requestedOrganizationId = input.organizationId || DEFAULT_ORGANIZATION_ID;
@@ -64,6 +68,8 @@ export async function createMessage(input: {
     const organizationId = context.rows[0].organization_id;
     const gatewayPoolId = context.rows[0].gateway_pool_id;
     let recipientAuthorizationId = input.recipientAuthorizationId || null;
+    let conversationThreadId = input.conversationThreadId || null;
+    let requiredGatewayId = input.requiredGatewayId || null;
 
     if (input.apiClientId) {
       const limits = await client.query(
@@ -161,14 +167,46 @@ export async function createMessage(input: {
       recipientAuthorizationId = authorization?.rows[0]?.id || null;
     }
 
+    if (conversationThreadId) {
+      const conversation = await client.query(
+        `SELECT id, gateway_id, participant_number
+           FROM conversation_threads
+          WHERE id = $1
+            AND organization_id = $2
+            AND status = 'open'
+            AND ($3::uuid IS NULL OR api_client_id = $3)
+            AND ($4::uuid IS NULL OR api_client_key_id = $4)`,
+        [conversationThreadId, organizationId, input.apiClientId || null, input.apiClientKeyId || null]
+      );
+      if (!conversation.rows[0] || conversation.rows[0].participant_number !== to) {
+        throw new Error("Conversation is not open for this API key and recipient");
+      }
+      requiredGatewayId ||= conversation.rows[0].gateway_id || null;
+    } else if (input.apiClientId && input.apiClientKeyId && (input.messageCategory || "ordinary") === "ordinary") {
+      const conversation = await ensureConversationInTransaction(client, {
+        organizationId,
+        apiClientId: input.apiClientId,
+        apiClientKeyId: input.apiClientKeyId,
+        participantNumber: to,
+        messagingProgramId: input.messagingProgramId || null,
+        externalReference: input.externalConversationReference || null,
+        metadata: input.externalConversationReference
+          ? { externalReference: input.externalConversationReference }
+          : {}
+      });
+      conversationThreadId = conversation.id;
+      requiredGatewayId ||= conversation.gateway_id || null;
+    }
+
     const result = await client.query<any>(
       `INSERT INTO messages (
          organization_id, gateway_pool_id, to_number, to_number_redacted, body,
          priority, scheduled_at, idempotency_key, metadata, callback_url,
          created_by_user_id, api_client_id, submitted_via, messaging_program_id,
-         recipient_authorization_id, required_gateway_id, message_category
+         recipient_authorization_id, required_gateway_id, message_category,
+         api_client_key_id, conversation_thread_id
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
        ON CONFLICT DO NOTHING
        RETURNING *`,
       [
@@ -187,12 +225,25 @@ export async function createMessage(input: {
         input.submittedVia || "dashboard",
         input.messagingProgramId || null,
         recipientAuthorizationId,
-        input.requiredGatewayId || null,
-        input.messageCategory || "ordinary"
+        requiredGatewayId,
+        input.messageCategory || "ordinary",
+        input.apiClientKeyId || null,
+        conversationThreadId
       ]
     );
     const created = result.rows[0];
-    if (created) return { message: created, wasCreated: true };
+    if (created) {
+      if (conversationThreadId) {
+        await client.query(
+          `UPDATE conversation_threads
+              SET last_message_at = now(), updated_at = now(),
+                  messaging_program_id = COALESCE(messaging_program_id, $2)
+            WHERE id = $1`,
+          [conversationThreadId, input.messagingProgramId || null]
+        );
+      }
+      return { message: created, wasCreated: true };
+    }
 
     if (!input.idempotencyKey) {
       throw new Error("Message could not be created");
@@ -226,7 +277,8 @@ export async function createMessage(input: {
         idempotencyKey: input.idempotencyKey || null,
         messagingProgramId: input.messagingProgramId || null,
         recipientAuthorizationId: message.recipient_authorization_id || null,
-        messageCategory: input.messageCategory || "ordinary"
+        messageCategory: input.messageCategory || "ordinary",
+        conversationId: message.conversation_thread_id || null
       }
     });
   }
@@ -282,10 +334,46 @@ export async function getMessage(id: string, options: { apiClientId?: string | n
       ORDER BY a.attempt_number`,
     [id]
   );
-  return { message: message.rows[0] ? redactSensitiveMessage(message.rows[0]) : null, attempts: attempts.rows };
+  const deliveryReceipts = await query<any>(
+    `SELECT id, message_attempt_id, modem_message_reference, recipient_number_redacted,
+            status_code, normalized_status, service_center_timestamp, discharge_time, received_at
+       FROM delivery_receipts
+      WHERE message_id = $1
+      ORDER BY received_at DESC`,
+    [id]
+  );
+  return {
+    message: message.rows[0] ? redactSensitiveMessage(message.rows[0]) : null,
+    attempts: attempts.rows,
+    deliveryReceipts: deliveryReceipts.rows
+  };
 }
 
-export async function listPhoneConversation(organizationId: string, phoneNumber: string) {
+export async function listPhoneConversation(organizationId: string, phoneNumber: string, conversationThreadId?: string | null) {
+  if (conversationThreadId) {
+    const [outbound, inbound] = await Promise.all([
+      query<any>(
+        `SELECT m.*, c.name AS api_client_name, g.name AS gateway_name
+           FROM messages m
+           LEFT JOIN api_clients c ON c.id = m.api_client_id
+           LEFT JOIN gateways g ON g.id = m.claim_gateway_id
+          WHERE m.organization_id = $1
+            AND m.conversation_thread_id = $2
+          ORDER BY m.created_at ASC`,
+        [organizationId, conversationThreadId]
+      ),
+      query<any>(
+        `SELECT i.*, g.name AS gateway_name
+           FROM inbound_messages i
+           LEFT JOIN gateways g ON g.id = i.gateway_id
+          WHERE i.organization_id = $1
+            AND i.conversation_thread_id = $2
+          ORDER BY i.received_at ASC`,
+        [organizationId, conversationThreadId]
+      )
+    ]);
+    return mergeConversationRows(outbound.rows, inbound.rows);
+  }
   const [outbound, inbound] = await Promise.all([
     query<any>(
       `SELECT m.*, c.name AS api_client_name, g.name AS gateway_name
@@ -308,13 +396,17 @@ export async function listPhoneConversation(organizationId: string, phoneNumber:
     )
   ]);
 
+  return mergeConversationRows(outbound.rows, inbound.rows);
+}
+
+function mergeConversationRows(outbound: any[], inbound: any[]) {
   return [
-    ...outbound.rows.map((row) => ({
+    ...outbound.map((row) => ({
       ...redactSensitiveMessage(row),
       direction: "outbound" as const,
       occurred_at: row.created_at
     })),
-    ...inbound.rows.map((row) => ({
+    ...inbound.map((row) => ({
       ...row,
       direction: "inbound" as const,
       occurred_at: row.received_at
@@ -325,17 +417,27 @@ export async function listPhoneConversation(organizationId: string, phoneNumber:
 export async function claimNextMessage(gatewayId: string) {
   const debugBypassRecipientConsent = isRecipientConsentDebugBypassEnabled();
   return transaction(async (client: pg.PoolClient) => {
-    await client.query(
+    const recoveredClaims = await client.query(
       `UPDATE messages
           SET status = 'queued',
               claim_gateway_id = NULL,
               claim_expires_at = NULL,
               updated_at = now()
         WHERE status = 'claimed'
-          AND claim_expires_at < now()`
+          AND claim_expires_at < now()
+        RETURNING id, organization_id`
     );
+    for (const recovered of recoveredClaims.rows) {
+      await recordMessageEventInTransaction(client, {
+        organizationId: recovered.organization_id,
+        messageId: recovered.id,
+        eventType: "message.requeued",
+        actorType: "system",
+        details: { reason: "claim_expired" }
+      });
+    }
 
-    await client.query(
+    const recoveredSending = await client.query(
       `UPDATE messages
           SET status = 'retry_scheduled',
               claim_gateway_id = NULL,
@@ -344,8 +446,18 @@ export async function claimNextMessage(gatewayId: string) {
               last_error = COALESCE(last_error, 'Recovered stale sending message'),
               updated_at = now()
         WHERE status = 'sending'
-          AND claim_expires_at < now() - interval '10 minutes'`
+          AND claim_expires_at < now() - interval '10 minutes'
+        RETURNING id, organization_id`
     );
+    for (const recovered of recoveredSending.rows) {
+      await recordMessageEventInTransaction(client, {
+        organizationId: recovered.organization_id,
+        messageId: recovered.id,
+        eventType: "message.retry_scheduled",
+        actorType: "system",
+        details: { reason: "stale_sending_recovered" }
+      });
+    }
 
     const result = await client.query(
       `WITH candidate AS (
@@ -483,6 +595,14 @@ export async function claimNextMessage(gatewayId: string) {
     );
     const message = result.rows[0] || null;
     if (message) {
+      if (message.conversation_thread_id) {
+        await client.query(
+          `UPDATE conversation_threads
+              SET gateway_id = COALESCE(gateway_id, $1), updated_at = now()
+            WHERE id = $2`,
+          [gatewayId, message.conversation_thread_id]
+        );
+      }
       await recordMessageEventInTransaction(client, {
         organizationId: message.organization_id,
         messageId: message.id,
@@ -583,21 +703,29 @@ export async function startAttempt(messageId: string, gatewayId: string) {
   });
 }
 
-export async function markSubmitted(messageId: string, attemptId: string, gatewayId: string, modemResponse?: string) {
+export async function markSubmitted(
+  messageId: string,
+  attemptId: string,
+  gatewayId: string,
+  modemResponse?: string,
+  modemMessageReference?: number | null
+) {
   return transaction(async (client) => {
     await client.query(
       `UPDATE message_attempts
           SET status = 'carrier_submitted',
               modem_response = $1,
+              modem_message_reference = $2,
+              submitted_at = now(),
               finished_at = now()
-        WHERE id = $2 AND gateway_id = $3 AND message_id = $4`,
-      [modemResponse || null, attemptId, gatewayId, messageId]
+        WHERE id = $3 AND gateway_id = $4 AND message_id = $5`,
+      [modemResponse || null, modemMessageReference ?? null, attemptId, gatewayId, messageId]
     );
     const result = await client.query(
       `UPDATE messages
           SET status = 'carrier_submitted',
               submitted_at = now(),
-              finalized_at = now(),
+              finalized_at = NULL,
               claim_gateway_id = NULL,
               claim_expires_at = NULL,
               updated_at = now()
@@ -627,7 +755,12 @@ export async function markSubmitted(messageId: string, attemptId: string, gatewa
         eventType: "message.carrier_submitted",
         actorType: "gateway",
         actorId: gatewayId,
-        details: { gatewayId, attemptId, modemResponse: modemResponse || null }
+        details: {
+          gatewayId,
+          attemptId,
+          modemResponse: modemResponse || null,
+          modemMessageReference: modemMessageReference ?? null
+        }
       });
     }
     return message;

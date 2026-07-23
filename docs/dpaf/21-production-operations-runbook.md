@@ -15,7 +15,7 @@ npm run build
 When using the local Docker Postgres database:
 
 ```bash
-DATABASE_URL=postgres://relayhub:relayhub@localhost:5432/relayhub_sms npm run db:migrate
+DATABASE_URL=postgres://relayhub:relayhub@localhost:5433/relayhub_sms npm run db:migrate
 ```
 
 ## Maintenance Jobs

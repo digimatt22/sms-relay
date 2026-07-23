@@ -5,6 +5,8 @@ import { normalizePhoneNumber } from "@/lib/phone";
 import { createPasswordResetCode, hashPassword, redactPhone, verifyPassword } from "@/lib/security";
 import { enqueueCallbackDelivery } from "@/lib/callbacks";
 import { getMessagingProgram, renderVerificationTemplate } from "@/lib/messaging-programs";
+import { canonicalEventType, publishPlatformEvent } from "@/lib/event-contract";
+import { recordMessageEvent } from "@/lib/message-events";
 
 const CHALLENGE_LIFETIME_MINUTES = 10;
 const CHALLENGE_MAX_ATTEMPTS = 5;
@@ -13,6 +15,7 @@ const CHALLENGE_MAX_PER_HOUR = 5;
 
 type AuthorizationActor = {
   apiClientId?: string | null;
+  apiClientKeyId?: string | null;
   userId?: string | null;
   actorType?: "api_client" | "admin_user" | "recipient" | "system";
 };
@@ -83,14 +86,27 @@ function callbackPayload(event: string, authorization: any) {
 }
 
 async function enqueueAuthorizationCallback(event: string, authorization: any, messageId?: string | null) {
+  const payload = callbackPayload(event, authorization);
   await enqueueCallbackDelivery({
     organizationId: authorization.organization_id,
     eventType: event,
     callbackUrl: authorization.callback_url || authorization.program_callback_url || null,
-    payload: callbackPayload(event, authorization),
+    payload,
     messageId: messageId || null,
     recipientAuthorizationId: authorization.id
   });
+  const eventType = canonicalEventType(event);
+  if (eventType) {
+    await publishPlatformEvent({
+      organizationId: authorization.organization_id,
+      apiClientId: authorization.created_by_api_client_id || null,
+      apiClientKeyId: authorization.created_by_api_client_key_id || null,
+      messageId: messageId || null,
+      recipientAuthorizationId: authorization.id,
+      eventType,
+      data: payload
+    });
+  }
 }
 
 export async function requestRecipientAuthorization(input: RequestAuthorizationInput) {
@@ -153,9 +169,10 @@ export async function requestRecipientAuthorization(input: RequestAuthorizationI
          client_recipient_reference, status, consent_source, consent_method,
          recipient_initiated, evidence_reference, disclosure_version_id,
          template_version_id, callback_url, created_by_api_client_id, created_by_user_id
+         , created_by_api_client_key_id
        )
        VALUES ($1, $2, $3, $4, $5, 'challenge_pending', $6, 'double_opt_in', true,
-               $7, $8, $9, $10, $11, $12)
+               $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (organization_id, messaging_program_id, phone_number) DO UPDATE
          SET client_recipient_reference = COALESCE(EXCLUDED.client_recipient_reference, recipient_authorizations.client_recipient_reference),
              status = 'challenge_pending',
@@ -184,7 +201,8 @@ export async function requestRecipientAuthorization(input: RequestAuthorizationI
         program.current_template_version_id,
         input.callbackUrl || null,
         input.apiClientId || null,
-        input.userId || null
+        input.userId || null,
+        input.apiClientKeyId || null
       ]
     );
     const authorization = authorizationResult.rows[0];
@@ -238,6 +256,7 @@ export async function requestRecipientAuthorization(input: RequestAuthorizationI
       },
       organizationId: input.organizationId,
       apiClientId: input.apiClientId || null,
+      apiClientKeyId: input.apiClientKeyId || null,
       userId: input.userId || null,
       submittedVia: input.apiClientId ? "api" : "dashboard",
       messagingProgramId: input.programId,
@@ -504,6 +523,37 @@ export async function recordClientOptOut(input: {
   for (const authorization of affected.authorizations) {
     await enqueueAuthorizationCallback("recipient.authorization.revoked", authorization);
   }
+  for (const messageId of affected.canceledMessageIds) {
+    await recordMessageEvent({
+      organizationId: input.organizationId,
+      messageId,
+      eventType: "message.canceled",
+      actorType: input.actorType,
+      actorId: input.actorId || null,
+      details: { reason: "recipient_opted_out", source: input.source }
+    });
+  }
+  const publishedKeys = new Set<string>();
+  for (const authorization of affected.authorizations) {
+    const keyId = authorization.created_by_api_client_key_id || "";
+    if (!keyId || publishedKeys.has(keyId)) continue;
+    publishedKeys.add(keyId);
+    await publishPlatformEvent({
+      organizationId: input.organizationId,
+      apiClientId: authorization.created_by_api_client_id || null,
+      apiClientKeyId: keyId,
+      messageId: input.matchedMessageId || null,
+      inboundMessageId: input.inboundMessageId || null,
+      recipientAuthorizationId: authorization.id,
+      eventType: "recipient.opt_out.recorded",
+      data: {
+        phoneRedacted: authorization.phone_number_redacted,
+        reasonCode: input.reasonCode,
+        source: input.source,
+        canceledMessageIds: affected.canceledMessageIds
+      }
+    });
+  }
   return affected;
 }
 
@@ -527,15 +577,25 @@ export async function createPlatformSuppression(input: {
      RETURNING *`,
     [phoneNumber, redactPhone(phoneNumber), input.source, input.reasonCode, input.gatewayId || null, input.inboundMessageId || null]
   );
-  await query(
+  const canceled = await query(
     `UPDATE messages
         SET status = 'canceled', claim_gateway_id = NULL, claim_expires_at = NULL,
             finalized_at = now(), last_error = 'Recipient platform-suppressed', updated_at = now()
       WHERE to_number = $1
         AND message_category = 'ordinary'
-        AND status IN ('queued', 'retry_scheduled', 'claimed')`,
+        AND status IN ('queued', 'retry_scheduled', 'claimed')
+      RETURNING id, organization_id`,
     [phoneNumber]
   );
+  for (const message of canceled.rows) {
+    await recordMessageEvent({
+      organizationId: message.organization_id,
+      messageId: message.id,
+      eventType: "message.canceled",
+      actorType: "system",
+      details: { reason: "recipient_platform_suppressed", source: input.source }
+    });
+  }
   return result.rows[0];
 }
 
@@ -592,7 +652,7 @@ export async function recordClientStart(input: {
     });
     return updatedResult.rows[0];
   });
-  if (authorization) await enqueueAuthorizationCallback("recipient.authorization.verified", authorization);
+  if (authorization) await enqueueAuthorizationCallback("recipient.authorization.reconsented", authorization);
   return authorization;
 }
 

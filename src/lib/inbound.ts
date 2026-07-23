@@ -36,6 +36,7 @@ export async function ingestInboundSms(input: InboundSmsInput) {
       `SELECT DISTINCT ON (m.id)
               m.id, m.organization_id, m.callback_url, m.messaging_program_id,
               m.recipient_authorization_id, m.submitted_at,
+              m.conversation_thread_id, m.api_client_key_id,
               p.sender_display_name, p.help_contact
          FROM messages m
          JOIN message_attempts a ON a.message_id = m.id
@@ -44,7 +45,7 @@ export async function ingestInboundSms(input: InboundSmsInput) {
           AND a.gateway_id = $3
           AND a.status = 'carrier_submitted'
           AND COALESCE(m.metadata->>'systemType', '') NOT IN ('password_reset', 'mobile_verification')
-          AND m.status = 'carrier_submitted'
+          AND m.status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown')
           AND m.submitted_at IS NOT NULL
           AND m.submitted_at <= $2::timestamptz
           AND m.submitted_at >= $2::timestamptz - interval '7 days'
@@ -55,7 +56,10 @@ export async function ingestInboundSms(input: InboundSmsInput) {
       (a: any, b: any) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
     );
     const candidateOrganizations = new Set(candidates.map((candidate: any) => candidate.organization_id));
-    const ambiguous = candidateOrganizations.size > 1;
+    const candidateRoutingScopes = new Set(candidates.map((candidate: any) =>
+      `${candidate.organization_id}:${candidate.conversation_thread_id || candidate.api_client_key_id || candidate.id}`
+    ));
+    const ambiguous = candidateOrganizations.size > 1 || candidateRoutingScopes.size > 1;
     const matched = !ambiguous ? candidates[0] || null : null;
     const organizationId = matched?.organization_id || gatewayOrganizationId;
 
@@ -64,12 +68,14 @@ export async function ingestInboundSms(input: InboundSmsInput) {
          organization_id, gateway_id, from_number, from_number_redacted, body, received_at,
          modem_index, message_status, service_center, matched_message_id,
          callback_url, callback_status, metadata, fingerprint
+         , conversation_thread_id
        )
        VALUES (
          $1::uuid, $2::uuid, $3, $4, $5, $6::timestamptz,
          $7, $8, $9, $10,
          $11, $12, $13::jsonb,
-         encode(digest($2::text || '|' || $3 || '|' || $5 || '|' || $6, 'sha256'), 'hex')
+         encode(digest($2::text || '|' || $3 || '|' || $5 || '|' || $6, 'sha256'), 'hex'),
+         $14
        )
        ON CONFLICT (fingerprint) DO UPDATE SET updated_at = inbound_messages.updated_at
        RETURNING inbound_messages.*, (xmax = 0) AS was_created`,
@@ -89,13 +95,23 @@ export async function ingestInboundSms(input: InboundSmsInput) {
         JSON.stringify({
           ...(input.metadata || {}),
           attributionAmbiguous: ambiguous,
-          candidateOrganizationCount: candidateOrganizations.size
-        })
+          candidateOrganizationCount: candidateOrganizations.size,
+          candidateConversationCount: candidateRoutingScopes.size
+        }),
+        matched?.conversation_thread_id || null
       ]
     );
     const created = inboundResult.rows[0];
 
     if (created.was_created) {
+      if (created.conversation_thread_id) {
+        await client.query(
+          `UPDATE conversation_threads
+              SET last_message_at = $1, updated_at = now()
+            WHERE id = $2`,
+          [created.received_at, created.conversation_thread_id]
+        );
+      }
       await recordMessageEventInTransaction(client, {
         organizationId,
         messageId: created.matched_message_id || null,
@@ -304,7 +320,16 @@ export async function getInboundMessage(id: string, options: { organizationId: s
 }
 
 async function dispatchInboundCallback(id: string) {
-  const result = await query<any>("SELECT * FROM inbound_messages WHERE id = $1", [id]);
+  const result = await query<any>(
+    `SELECT i.*, m.metadata AS outbound_metadata,
+            c.external_reference AS conversation_external_reference,
+            c.metadata AS conversation_metadata
+       FROM inbound_messages i
+       LEFT JOIN messages m ON m.id = i.matched_message_id
+       LEFT JOIN conversation_threads c ON c.id = i.conversation_thread_id
+      WHERE i.id = $1`,
+    [id]
+  );
   const inbound = result.rows[0];
   if (!inbound?.callback_url) return inbound;
 
@@ -312,12 +337,18 @@ async function dispatchInboundCallback(id: string) {
     event: "sms.inbound.received",
     inboundMessageId: inbound.id,
     matchedOutboundMessageId: inbound.matched_message_id,
+    conversationId: inbound.conversation_thread_id,
     gatewayId: inbound.gateway_id,
     from: inbound.from_number,
     fromRedacted: inbound.from_number_redacted,
     body: inbound.body,
     receivedAt: inbound.received_at,
-    metadata: inbound.metadata
+    metadata: inbound.metadata,
+    correlation: {
+      externalReference: inbound.conversation_external_reference || null,
+      outboundMetadata: inbound.outbound_metadata || {},
+      conversationMetadata: inbound.conversation_metadata || {}
+    }
   };
 
   const delivery = await query(

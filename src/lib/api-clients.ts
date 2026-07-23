@@ -57,7 +57,7 @@ export async function listApiClients(options: { organizationId?: string } = {}) 
             COUNT(k.id) FILTER (WHERE k.status = 'active')::int AS active_key_count,
             COUNT(DISTINCT m.id)::int AS total_messages,
             COUNT(DISTINCT m.id) FILTER (WHERE m.created_at >= now() - interval '24 hours')::int AS messages_24h,
-            COUNT(DISTINCT m.id) FILTER (WHERE m.status = 'carrier_submitted')::int AS submitted_messages,
+            COUNT(DISTINCT m.id) FILTER (WHERE m.status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown'))::int AS submitted_messages,
             COUNT(DISTINCT m.id) FILTER (WHERE m.status IN ('retry_scheduled', 'failed', 'dead_lettered'))::int AS problem_messages
        FROM api_clients c
        LEFT JOIN api_client_keys k ON k.api_client_id = c.id
@@ -222,7 +222,7 @@ export async function getClientUsageSummary(options: { organizationId?: string }
             COUNT(m.id)::int AS total_messages,
             COUNT(m.id) FILTER (WHERE m.created_at >= now() - interval '1 hour')::int AS messages_1h,
             COUNT(m.id) FILTER (WHERE m.created_at >= now() - interval '24 hours')::int AS messages_24h,
-            COUNT(m.id) FILTER (WHERE m.status = 'carrier_submitted')::int AS submitted_messages,
+            COUNT(m.id) FILTER (WHERE m.status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown'))::int AS submitted_messages,
             COUNT(m.id) FILTER (WHERE m.status IN ('retry_scheduled', 'failed', 'dead_lettered'))::int AS problem_messages
        FROM messages m
        LEFT JOIN api_clients c ON c.id = m.api_client_id
@@ -268,6 +268,7 @@ export async function authenticateApiClient(key: string) {
       name: client.name,
       organization_id: client.organization_id,
       api_key_prefix: client.api_key_prefix,
+      key_id: client.key_id,
       status: client.status
     };
   });

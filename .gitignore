@@ -11,4 +11,5 @@ packages/gateway/*.tsbuildinfo
 public/gateway.tar.gz
 SMS Gateway.zip
 *.log
+/backups/
 .DS_Store

@@ -1,5 +1,6 @@
 import type pg from "pg";
 import { query } from "@/lib/db";
+import { canonicalEventType, publishPlatformEvent, publishPlatformEventInTransaction } from "@/lib/event-contract";
 
 type EventInput = {
   organizationId: string;
@@ -25,6 +26,16 @@ export async function recordMessageEvent(input: EventInput) {
       JSON.stringify(input.details || {})
     ]
   );
+  const eventType = canonicalEventType(input.eventType);
+  if (eventType) {
+    await publishPlatformEvent({
+      organizationId: input.organizationId,
+      messageId: input.messageId || null,
+      inboundMessageId: typeof input.details?.inboundMessageId === "string" ? input.details.inboundMessageId : null,
+      eventType,
+      data: input.details || {}
+    });
+  }
 }
 
 export async function recordMessageEventInTransaction(client: pg.PoolClient, input: EventInput) {
@@ -42,4 +53,14 @@ export async function recordMessageEventInTransaction(client: pg.PoolClient, inp
       JSON.stringify(input.details || {})
     ]
   );
+  const eventType = canonicalEventType(input.eventType);
+  if (eventType) {
+    await publishPlatformEventInTransaction(client, {
+      organizationId: input.organizationId,
+      messageId: input.messageId || null,
+      inboundMessageId: typeof input.details?.inboundMessageId === "string" ? input.details.inboundMessageId : null,
+      eventType,
+      data: input.details || {}
+    });
+  }
 }

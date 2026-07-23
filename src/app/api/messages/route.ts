@@ -28,8 +28,11 @@ export async function POST(request: NextRequest) {
       ...parsed.data,
       userId: "error" in admin ? null : admin.session.user.id,
       apiClientId: client && !("error" in client) ? client.client.id : null,
+      apiClientKeyId: client && !("error" in client) ? client.client.key_id : null,
       submittedVia: client && !("error" in client) ? "api" : "dashboard",
       messagingProgramId: parsed.data.programId,
+      conversationThreadId: parsed.data.conversationId || null,
+      externalConversationReference: parsed.data.externalConversationReference || null,
       recipientAuthorizationId: parsed.data.recipientAuthorizationId || null,
       messageCategory: "ordinary",
       organizationId: "error" in admin

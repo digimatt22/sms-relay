@@ -8,7 +8,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   const { id, attemptId } = await context.params;
   const body = await request.json().catch(() => ({}));
-  const message = await markSubmitted(id, attemptId, gatewayAuth.gateway.id, body.modemResponse);
+  const message = await markSubmitted(
+    id,
+    attemptId,
+    gatewayAuth.gateway.id,
+    body.modemResponse,
+    Number.isInteger(body.modemMessageReference) ? body.modemMessageReference : null
+  );
   if (!message) return NextResponse.json({ error: "Message attempt not updatable" }, { status: 409 });
   return NextResponse.json({ message });
 }

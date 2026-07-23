@@ -11,7 +11,7 @@ test("message details show an organization-scoped phone conversation", () => {
   assert.match(messages, /m\.organization_id = \$1[\s\S]*m\.to_number = \$2/);
   assert.match(messages, /i\.organization_id = \$1[\s\S]*i\.from_number = \$2/);
   assert.match(messages, /redactSensitiveMessage\(row\)/);
-  assert.match(page, /listPhoneConversation\(organizationId, message\.to_number\)/);
+  assert.match(page, /listPhoneConversation\(organizationId, message\.to_number, message\.conversation_thread_id\)/);
   assert.match(page, /conversation\.map/);
   assert.match(page, /Selected message/);
   assert.match(migration, /messages \(organization_id, to_number, created_at\)/);

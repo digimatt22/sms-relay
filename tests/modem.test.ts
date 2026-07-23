@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error serialport's package exports hide binding-mock types from TS bundler resolution.
 import { MockBinding } from "@serialport/binding-mock";
-import { Sim7070Modem, ModemError, gpioWrite } from "../packages/gateway/src/modem";
+import { Sim7070Modem, ModemError, gpioWrite, parseDeliveryReportLine } from "../packages/gateway/src/modem";
 import { normalizePhoneNumber } from "../packages/gateway/src/phone";
 import type { GatewayConfig } from "../packages/gateway/src/config";
 
@@ -70,6 +70,20 @@ test("SIM7070 modem initializes and waits for +CMGS OK", async () => {
 
   assert.equal(result.submitted, true);
   assert.match(result.response, /\+CMGS: 42/);
+  assert.equal(result.messageReference, 42);
+});
+
+test("SIM7070 delivery reports normalize carrier status and preserve message reference", () => {
+  const delivered = parseDeliveryReportLine(
+    '+CDS: 49,42,"+15551234567",145,"26/07/22,10:00:00-16","26/07/22,10:00:04-16",0'
+  );
+  const failed = parseDeliveryReportLine(
+    '+CDS: 49,43,"+15551234567",145,"26/07/22,10:00:00-16","26/07/22,10:01:04-16",64'
+  );
+  assert.equal(delivered?.messageReference, 42);
+  assert.equal(delivered?.recipient, "+15551234567");
+  assert.equal(delivered?.normalizedStatus, "delivered");
+  assert.equal(failed?.normalizedStatus, "undelivered");
 });
 
 test("SIM7070 modem trains autobaud with repeated AT commands", async () => {
@@ -287,6 +301,8 @@ test("GPIO write uses Raspberry Pi pinctrl tooling", async () => {
 
 async function respondToCommands(modem: Sim7070Modem, pairs: Array<[string, string]>) {
   let seen = "";
+  const autoResponded = new Set<string>();
+  const deliveryConfigurationCommands = ["AT+CSMP=49,167,0,0\r", "AT+CNMI=2,1,0,1,0\r"];
   for (const [command, response] of pairs) {
     const port = await waitForMockPort(modem);
     const deadline = Date.now() + 5000;
@@ -296,6 +312,12 @@ async function respondToCommands(modem: Sim7070Modem, pairs: Array<[string, stri
       }
       await new Promise((resolve) => setTimeout(resolve, 10));
       seen = port.recording.toString("utf8");
+      for (const configurationCommand of deliveryConfigurationCommands) {
+        if (command !== configurationCommand && seen.includes(configurationCommand) && !autoResponded.has(configurationCommand)) {
+          autoResponded.add(configurationCommand);
+          port.emitData("\r\nOK\r\n");
+        }
+      }
     }
     port.emitData(response);
   }

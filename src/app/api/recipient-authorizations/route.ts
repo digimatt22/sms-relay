@@ -11,6 +11,7 @@ async function requestContext(request: NextRequest) {
       organizationId: await getCurrentOrganizationId({ userId: admin.session.user.id, role: admin.session.user.role }),
       userId: admin.session.user.id,
       apiClientId: null,
+      apiClientKeyId: null,
       actorType: "admin_user" as const
     };
   }
@@ -20,6 +21,7 @@ async function requestContext(request: NextRequest) {
     organizationId: client.client.organization_id,
     userId: null,
     apiClientId: client.client.id,
+    apiClientKeyId: client.client.key_id,
     actorType: "api_client" as const
   };
 }
@@ -48,6 +50,7 @@ export async function POST(request: NextRequest) {
       callbackUrl: parsed.data.callbackUrl,
       userId: context.userId,
       apiClientId: context.apiClientId,
+      apiClientKeyId: context.apiClientKeyId,
       actorType: context.actorType
     });
     return NextResponse.json({ authorization: sanitize(authorization) }, { status: 202 });

@@ -1,11 +1,32 @@
 import { transaction } from "@/lib/db";
 import { expireRecipientAuthorizationChallenges } from "@/lib/recipient-authorizations";
 import { isRecipientConsentDebugBypassEnabled } from "@/lib/debug-flags";
+import { publishPlatformEventInTransaction } from "@/lib/event-contract";
+import { recordMessageEventInTransaction } from "@/lib/message-events";
 
 export async function runMaintenanceJobs() {
   const expiredAuthorizationChallenges = await expireRecipientAuthorizationChallenges();
   const debugBypassRecipientConsent = isRecipientConsentDebugBypassEnabled();
   return transaction(async (client) => {
+    const unknownDeliveries = await client.query(
+      `UPDATE messages
+          SET status = 'delivery_unknown', delivery_status = 'unknown',
+              delivery_status_updated_at = now(), finalized_at = now(), updated_at = now()
+        WHERE status = 'carrier_submitted'
+          AND submitted_at < now() - interval '72 hours'
+        RETURNING id, organization_id, api_client_id, api_client_key_id, conversation_thread_id, submitted_at`
+    );
+    for (const message of unknownDeliveries.rows) {
+      await publishPlatformEventInTransaction(client, {
+        organizationId: message.organization_id,
+        apiClientId: message.api_client_id,
+        apiClientKeyId: message.api_client_key_id,
+        messageId: message.id,
+        conversationThreadId: message.conversation_thread_id,
+        eventType: "sms.outbound.delivery_unknown",
+        data: { submittedAt: message.submitted_at, reason: "delivery_receipt_timeout", timeoutHours: 72 }
+      });
+    }
     await client.query("DELETE FROM daily_usage_rollups WHERE usage_date >= (current_date - interval '120 days')::date");
 
     const rollup = await client.query(
@@ -19,7 +40,7 @@ export async function runMaintenanceJobs() {
                 claim_gateway_id AS gateway_id,
                 created_at::date AS usage_date,
                 1 AS outbound_count,
-                CASE WHEN status = 'carrier_submitted' THEN 1 ELSE 0 END AS submitted_count,
+                CASE WHEN status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown') THEN 1 ELSE 0 END AS submitted_count,
                 CASE WHEN status IN ('failed', 'dead_lettered') THEN 1 ELSE 0 END AS failed_count,
                 0 AS inbound_count
            FROM messages
@@ -96,12 +117,23 @@ export async function runMaintenanceJobs() {
                WHERE s.phone_number = m.to_number
                  AND s.status = 'active'
             )
-          )`,
+          )
+        RETURNING id, organization_id`,
       [debugBypassRecipientConsent]
     );
+    for (const message of invalidQueuedMessages.rows) {
+      await recordMessageEventInTransaction(client, {
+        organizationId: message.organization_id,
+        messageId: message.id,
+        eventType: "message.canceled",
+        actorType: "system",
+        details: { reason: "recipient_authorization_or_suppression_changed" }
+      });
+    }
 
     return {
       expiredAuthorizationChallenges,
+      deliveryUnknownRows: unknownDeliveries.rowCount || 0,
       canceledUnauthorizedMessageRows: invalidQueuedMessages.rowCount || 0,
       rollupRows: rollup.rowCount || 0,
       deletedLogRows: logs.rowCount || 0,

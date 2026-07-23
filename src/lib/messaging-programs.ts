@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { query, transaction } from "@/lib/db";
+import { recordMessageEventInTransaction } from "@/lib/message-events";
 
 export const MESSAGE_CLASSES = ["marketing", "informational_recurring", "user_requested_transactional"] as const;
 export type MessageClass = (typeof MESSAGE_CLASSES)[number];
@@ -163,15 +164,25 @@ export async function updateMessagingProgram(input: {
     );
     const program = result.rows[0];
     if (program && input.status === "disabled") {
-      await db.query(
+      const canceled = await db.query(
         `UPDATE messages
             SET status = 'canceled', claim_gateway_id = NULL, claim_expires_at = NULL,
                 finalized_at = now(), last_error = 'Messaging program disabled', updated_at = now()
           WHERE messaging_program_id = $1
             AND message_category = 'ordinary'
-            AND status IN ('queued', 'retry_scheduled', 'claimed')`,
+            AND status IN ('queued', 'retry_scheduled', 'claimed')
+          RETURNING id, organization_id`,
         [input.programId]
       );
+      for (const message of canceled.rows) {
+        await recordMessageEventInTransaction(db, {
+          organizationId: message.organization_id,
+          messageId: message.id,
+          eventType: "message.canceled",
+          actorType: "system",
+          details: { reason: "messaging_program_disabled", messagingProgramId: input.programId }
+        });
+      }
     }
     return program || null;
   });

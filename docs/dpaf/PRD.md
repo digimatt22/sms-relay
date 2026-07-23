@@ -1,6 +1,6 @@
 # PRD: RelayHub SMS
 
-Status: Draft.
+Status: Implemented foundation; production qualification in progress.
 
 ## Purpose
 RelayHub SMS is a cloud-coordinated outbound SMS gateway platform. It lets admins insert and monitor outbound SMS messages through a dashboard/API while remote gateway appliances claim, send, and report message status through SIM7070 modules.
@@ -19,7 +19,6 @@ RelayHub SMS is a cloud-coordinated outbound SMS gateway platform. It lets admin
 - Keep the architecture scalable for future load balancing.
 
 ## Non-Goals
-- Inbound SMS handling.
 - Guaranteed exactly-once delivery.
 - SIM activation, cellular plans, provider account management, or hardware purchasing.
 - Custom ESP32 appliance manufacturing in MVP.
@@ -38,7 +37,7 @@ RelayHub SMS is a cloud-coordinated outbound SMS gateway platform. It lets admin
 6. Claimed messages receive a lease with a 2-minute timeout.
 7. A stuck/expired claim can be reassigned to another gateway.
 8. Gateway sends SMS through SIM7070.
-9. Carrier-submitted counts as MVP success.
+9. Carrier-submitted means accepted by the modem/carrier; handset delivery is tracked separately when a carrier report is available.
 10. Failed sends retry up to 3 times with exponential backoff, then dead-letter.
 11. Gateway health and logs are sent to the central API.
 12. Dashboard shows queue, message detail, gateway fleet status, health, and logs.
@@ -64,6 +63,9 @@ RelayHub SMS is a cloud-coordinated outbound SMS gateway platform. It lets admin
 Primary entities:
 - Message
 - Message attempt
+- Delivery receipt
+- Conversation thread
+- Platform event and API-key webhook subscription
 - Gateway
 - Gateway API key metadata
 - Gateway health sample
@@ -105,7 +107,7 @@ Detailed draft API is in `09-api-specification.md`.
 - SMS body may be included in MVP logs.
 
 ## Risks
-- SMS delivery semantics vary by carrier and modem; MVP success is carrier-submitted, not handset-delivered.
+- SMS delivery semantics vary by carrier and modem; a delivery-confirmed state is only as authoritative as the carrier receipt.
 - Best-effort duplicate prevention does not eliminate every carrier/network duplicate scenario.
 - Static API keys need disciplined rotation/revocation.
 - Python remains a future fallback only if SIM7070 integration proves materially more reliable outside TypeScript/Node.

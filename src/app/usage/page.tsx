@@ -19,7 +19,7 @@ export default async function UsagePage() {
               COUNT(DISTINCT c.id)::int AS api_app_count,
               COUNT(DISTINCT g.id)::int AS gateway_count,
               COUNT(DISTINCT m.id)::int AS outbound_count,
-              COUNT(DISTINCT m.id) FILTER (WHERE m.status = 'carrier_submitted')::int AS submitted_count,
+              COUNT(DISTINCT m.id) FILTER (WHERE m.status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown'))::int AS submitted_count,
               COUNT(DISTINCT i.id)::int AS inbound_count,
               COUNT(DISTINCT m.id) FILTER (WHERE m.created_at >= now() - interval '24 hours')::int AS outbound_24h,
               COUNT(DISTINCT i.id) FILTER (WHERE i.received_at >= now() - interval '24 hours')::int AS inbound_24h
@@ -36,7 +36,7 @@ export default async function UsagePage() {
     query(
       `SELECT o.name,
               COUNT(m.id)::int AS outbound_count,
-              COUNT(m.id) FILTER (WHERE m.status = 'carrier_submitted')::int AS submitted_count,
+              COUNT(m.id) FILTER (WHERE m.status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown'))::int AS submitted_count,
               COUNT(i.id)::int AS inbound_count
          FROM organizations o
          LEFT JOIN messages m ON m.organization_id = o.id
@@ -50,7 +50,7 @@ export default async function UsagePage() {
       `SELECT COALESCE(c.name, 'Dashboard') AS source,
               COUNT(m.id)::int AS outbound_count,
               COUNT(m.id) FILTER (WHERE m.created_at >= now() - interval '24 hours')::int AS outbound_24h,
-              COUNT(m.id) FILTER (WHERE m.status = 'carrier_submitted')::int AS submitted_count,
+              COUNT(m.id) FILTER (WHERE m.status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown'))::int AS submitted_count,
               COUNT(m.id) FILTER (WHERE m.status IN ('failed', 'dead_lettered'))::int AS problem_count
          FROM messages m
          LEFT JOIN api_clients c ON c.id = m.api_client_id

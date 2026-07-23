@@ -16,7 +16,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
   const session = await requireAdminPage();
   const { id } = await params;
   const organizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
-  const { message, attempts } = await getMessage(id);
+  const { message, attempts, deliveryReceipts } = await getMessage(id);
   if (!message || message.organization_id !== organizationId) notFound();
   const [replies, callbacks, conversation] = await Promise.all([
     query(
@@ -35,11 +35,11 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
         LIMIT 10`,
       [message.id]
     ),
-    listPhoneConversation(organizationId, message.to_number)
+    listPhoneConversation(organizationId, message.to_number, message.conversation_thread_id)
   ]);
   const canOperate = hasRole(session, "operator");
   const canCancel = canOperate && ["queued", "retry_scheduled", "claimed"].includes(message.status);
-  const canRequeue = canOperate && message.status !== "carrier_submitted";
+  const canRequeue = canOperate && !["carrier_submitted", "delivery_confirmed", "delivery_failed", "delivery_unknown"].includes(message.status);
 
   return (
     <>
@@ -69,7 +69,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
         <MetricCard label="Attempts" value={message.attempt_count} note={message.last_error || "No active error"} />
         <MetricCard label="Replies" value={replies.rows.length} note="Inbound SMS linked to this outbound" />
         <MetricCard label="Callbacks" value={callbacks.rows.length} note="Webhook delivery records" />
-        <MetricCard label="Priority" value={message.priority} note="Routing priority" />
+        <MetricCard label="Delivery reports" value={deliveryReceipts.length} note={message.delivery_status || "Awaiting carrier receipt"} />
       </section>
 
       <div className="route-card-grid">
@@ -119,6 +119,14 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
                 state={attempt.status === "carrier_submitted" ? "success" : attempt.status === "failed" ? "problem" : undefined}
               />
             ))}
+            {deliveryReceipts.map((receipt: any) => (
+              <TimelineItem
+                key={receipt.id}
+                title={`Delivery: ${humanize(receipt.normalized_status)}`}
+                detail={<>Carrier code {receipt.status_code} · <LocalDateTime value={receipt.received_at} /></>}
+                state={receipt.normalized_status === "delivered" ? "success" : receipt.normalized_status === "undelivered" ? "problem" : undefined}
+              />
+            ))}
             {replies.rows.map((reply: any) => (
               <TimelineItem
                 key={reply.id}
@@ -137,6 +145,8 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
             <dt>To</dt><dd>{message.to_number_redacted}</dd>
             <dt>Gateway Used</dt><dd>{message.gateway_name || message.claim_gateway_id || "-"}</dd>
             <dt>Final Status</dt><dd><span className={`status ${message.status}`}>{humanize(message.status)}</span></dd>
+            <dt>Carrier Delivery</dt><dd>{message.delivery_status ? humanize(message.delivery_status) : "Awaiting report"}</dd>
+            <dt>Delivered At</dt><dd>{message.delivered_at ? <LocalDateTime value={message.delivered_at} /> : "-"}</dd>
             <dt>Last Attempt</dt><dd>{attempts[0]?.started_at ? <LocalDateTime value={attempts[0].started_at} /> : "-"}</dd>
           </dl>
         </section>

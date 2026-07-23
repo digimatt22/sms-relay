@@ -1,12 +1,13 @@
 import { query, transaction } from "@/lib/db";
 import { randomUUID } from "node:crypto";
-import { createWebhookRequest } from "@/lib/webhooks";
+import { createWebhookRequest, deriveWebhookSigningSecret } from "@/lib/webhooks";
 
 type CallbackDelivery = {
   id: string;
   callback_url: string;
   payload: unknown;
   attempt_count: number;
+  webhook_subscription_id?: string | null;
 };
 
 export async function enqueueCallbackDelivery(input: {
@@ -57,7 +58,7 @@ export async function processPendingCallbackDeliveries(limit = 25) {
               updated_at = now()
          FROM due
         WHERE d.id = due.id
-        RETURNING d.id, d.callback_url, d.payload, d.attempt_count`,
+        RETURNING d.id, d.callback_url, d.payload, d.attempt_count, d.webhook_subscription_id`,
       [limit]
     );
     return result.rows;
@@ -77,7 +78,7 @@ export async function retryCallbackDelivery(id: string) {
             next_attempt_at = now(),
             updated_at = now()
       WHERE id = $1
-      RETURNING id, callback_url, payload, attempt_count`,
+      RETURNING id, callback_url, payload, attempt_count, webhook_subscription_id`,
     [id]
   );
   const delivery = result.rows[0];
@@ -87,7 +88,10 @@ export async function retryCallbackDelivery(id: string) {
 
 async function sendCallbackDelivery(delivery: CallbackDelivery) {
   try {
-    const request = createWebhookRequest(delivery.callback_url, delivery.payload);
+    const signingSecret = delivery.webhook_subscription_id
+      ? deriveWebhookSigningSecret(delivery.webhook_subscription_id)
+      : null;
+    const request = createWebhookRequest(delivery.callback_url, delivery.payload, signingSecret, delivery.id);
     const response = await fetch(request.url, request.init);
     const text = await response.text();
     const status = response.ok ? "delivered" : "failed";

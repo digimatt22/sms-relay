@@ -13,13 +13,14 @@ Status: Draft.
 - Mock modem/API/database paths support testing.
 
 ## Candidate Next Phase
-- Production deployment hardening and operational runbooks.
-- Stronger duplicate prevention and operational alerting.
-- Finalize appliance hardware if MVP used dev hardware.
-- Implement all Phase 3-7 kickoff prompts after repository conventions are proven.
+- Qualify a production-eligible carrier/SIM and real-network delivery reports.
+- Complete webhook operational hardening and publish machine-readable contracts.
+- Implement the SwimSense alert-to-reply-to-app pilot against first-class conversations.
+- Add conversation workflow state, deterministic reply commands, escalation policies, and segment/cost controls.
+- Validate the same contract with two Stratus Tools workflows without forking the platform.
 
 ## Candidate Future Phase
-- Load balancing across gateways.
-- Expanded API/database compatibility.
+- Store-and-forward edge durability and measured load/failure SLOs.
+- Customer-dedicated gateway pools and workflow adapters/SDKs.
 - More hardware/modem support.
 - ESP32 custom appliance evaluation.

@@ -24,6 +24,11 @@ Track confirmed, inferred, and unresolved requirements before PRD compilation.
 | FR-016 | MVP must prove 2-3 gateways. | Confirmed | Discovery |
 | FR-017 | MVP dashboard authentication must use Auth.js/NextAuth.js with local database-backed admin credentials. | Confirmed | Discovery |
 | FR-018 | MVP gateway hardware is Raspberry Pi Zero 2 W with the selected SIM7070G module. | Confirmed | Discovery |
+| FR-019 | The system must distinguish carrier submission from handset delivery and retain delivery receipt evidence where the carrier supplies it. | Confirmed | 2026-07-22 direction |
+| FR-020 | Client integrations must have first-class conversation threads with external workflow correlation. | Confirmed | SwimSense/Stratus integration direction |
+| FR-021 | Webhook subscriptions and event delivery must be scoped to the exact API key. | Confirmed | 2026-07-22 direction |
+| FR-022 | The platform must publish a durable, versioned, complete lifecycle event contract. | Confirmed | 2026-07-22 direction |
+| NFR-016 | AWS SNS and Twilio must not be configured as SMS fallback transports. | Confirmed | 2026-07-22 direction |
 | FR-019 | Dashboard must be served at `https://sns.digicolony.net`. | Confirmed | Discovery |
 | FR-020 | Installer must be served at `https://sns.digicolony.net/install`. | Confirmed | Discovery |
 

@@ -10,6 +10,18 @@ type ModemTrace = (eventType: string, context: Record<string, unknown>) => void;
 export type SendResult = {
   submitted: boolean;
   response: string;
+  messageReference?: number;
+};
+
+export type DeliveryReport = {
+  messageReference: number;
+  recipient?: string;
+  serviceCenterTimestamp?: string;
+  dischargeTime?: string;
+  statusCode: number;
+  normalizedStatus: "delivered" | "pending" | "undelivered" | "unknown";
+  rawReport: string;
+  receivedAt: string;
 };
 
 export type InboundSms = {
@@ -36,6 +48,7 @@ export interface Modem {
   getSignalQuality?(): Promise<SignalQuality>;
   sendSms(to: string, body: string): Promise<SendResult>;
   listUnreadSms?(): Promise<InboundSms[]>;
+  listDeliveryReports?(): Promise<DeliveryReport[]>;
   deleteSms?(modemIndex: number): Promise<void>;
 }
 
@@ -77,6 +90,10 @@ export class MockModem implements Modem {
     return [];
   }
 
+  async listDeliveryReports(): Promise<DeliveryReport[]> {
+    return [];
+  }
+
   async deleteSms() {
     return;
   }
@@ -88,6 +105,8 @@ export class Sim7070Modem implements Modem {
   private initialized = false;
   private currentBaudRate?: number;
   private operationQueue: Promise<void> = Promise.resolve();
+  private deliveryReports: DeliveryReport[] = [];
+  private unsolicitedLineBuffer = "";
 
   constructor(
     private readonly config: GatewayConfig,
@@ -120,6 +139,13 @@ export class Sim7070Modem implements Modem {
     await this.command("AT+CMGF=1", { expect: /OK/, timeoutMs: 3000 });
     await this.command('AT+CSCS="GSM"', { expect: /OK/, timeoutMs: 3000 });
     await this.tryCommand("AT+CPMS?", { expect: /\+CPMS:[\s\S]*OK|ERROR/, timeoutMs: 3000 });
+    const statusReportMode = await this.tryCommand("AT+CSMP=49,167,0,0", { expect: /OK|ERROR/, timeoutMs: 3000 });
+    const statusReportRouting = await this.tryCommand("AT+CNMI=2,1,0,1,0", { expect: /OK|ERROR/, timeoutMs: 3000 });
+    this.trace?.("modem_delivery_reports_configured", {
+      requested: /OK/.test(statusReportMode) && /OK/.test(statusReportRouting),
+      csmp: compactTranscript(statusReportMode),
+      cnmi: compactTranscript(statusReportRouting)
+    });
     this.initialized = true;
   }
 
@@ -178,7 +204,8 @@ export class Sim7070Modem implements Modem {
 
     return {
       submitted: true,
-      response: compactTranscript(response)
+      response: compactTranscript(response),
+      messageReference: Number(response.match(/\+CMGS:\s*(\d+)/)?.[1])
     };
     });
   }
@@ -191,6 +218,15 @@ export class Sim7070Modem implements Modem {
 
     const response = await this.command('AT+CMGL="REC UNREAD"', { expect: /OK|ERROR/, timeoutMs: 10000 });
     return parseCmgl(response);
+    });
+  }
+
+  async listDeliveryReports(): Promise<DeliveryReport[]> {
+    return this.withSerialLock(async () => {
+      if (!this.initialized) await this.initializeUnlocked();
+      const reports = this.deliveryReports;
+      this.deliveryReports = [];
+      return reports;
     });
   }
 
@@ -307,7 +343,9 @@ export class Sim7070Modem implements Modem {
     }
     this.port = new SerialPort(options as any);
     this.port.on("data", (chunk: Buffer) => {
-      this.buffer += chunk.toString("utf8");
+      const value = chunk.toString("utf8");
+      this.buffer += value;
+      this.captureUnsolicitedLines(value);
     });
     await new Promise<void>((resolve, reject) => {
       this.port?.open((error) => (error ? reject(error) : resolve()));
@@ -322,6 +360,23 @@ export class Sim7070Modem implements Modem {
     }).catch(() => undefined);
     await sleep(500);
     this.buffer = "";
+  }
+
+  private captureUnsolicitedLines(value: string) {
+    this.unsolicitedLineBuffer += value.replace(/\r/g, "");
+    const lines = this.unsolicitedLineBuffer.split("\n");
+    this.unsolicitedLineBuffer = lines.pop() || "";
+    for (const line of lines) {
+      const report = parseDeliveryReportLine(line.trim());
+      if (report) {
+        this.deliveryReports.push(report);
+        this.trace?.("modem_delivery_report_received", {
+          messageReference: report.messageReference,
+          statusCode: report.statusCode,
+          normalizedStatus: report.normalizedStatus
+        });
+      }
+    }
   }
 
   private async close() {
@@ -569,6 +624,34 @@ function parseCsvLine(line: string) {
   }
   fields.push(current);
   return fields.map((field) => field.trim());
+}
+
+export function parseDeliveryReportLine(line: string): DeliveryReport | null {
+  if (!line.startsWith("+CDS:")) return null;
+  const fields = parseCsvLine(line.replace(/^\+CDS:\s*/, ""));
+  const messageReference = Number(fields[1]);
+  const recipient = fields.length >= 7 ? fields[2] || undefined : undefined;
+  const statusCode = Number(fields.at(-1));
+  if (!Number.isInteger(messageReference) || !Number.isInteger(statusCode)) return null;
+  const dateFields = fields.filter((field) => /^\d{2}\/\d{2}\/\d{2},/.test(field));
+  return {
+    messageReference,
+    recipient,
+    serviceCenterTimestamp: dateFields[0] ? parseSimTimestamp(dateFields[0]).toISOString() : undefined,
+    dischargeTime: dateFields[1] ? parseSimTimestamp(dateFields[1]).toISOString() : undefined,
+    statusCode,
+    normalizedStatus: normalizeDeliveryStatus(statusCode),
+    rawReport: line,
+    receivedAt: new Date().toISOString()
+  };
+}
+
+export function normalizeDeliveryStatus(statusCode: number): DeliveryReport["normalizedStatus"] {
+  if (!Number.isInteger(statusCode) || statusCode < 0 || statusCode > 255) return "unknown";
+  if (statusCode <= 31) return "delivered";
+  if (statusCode <= 63) return "pending";
+  if (statusCode <= 127) return "undelivered";
+  return "unknown";
 }
 
 function parseSimTimestamp(value: string) {
