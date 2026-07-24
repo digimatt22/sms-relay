@@ -1,6 +1,6 @@
 # PostgreSQL Runtime Role Isolation Execution Plan
 
-Status: In progress.
+Status: Completed.
 
 Incident: 2026-07-24 shared `appuser` role password collision on Sheldon.
 
@@ -47,7 +47,7 @@ Live status:
 
 - [x] Gate 1 completed at 2026-07-24 13:20 UTC after explicit confirmation.
 - [x] Gate 2 completed at 2026-07-24 13:46 UTC after explicit confirmation.
-- [ ] Gate 3 pending explicit confirmation.
+- [x] Gate 3 completed at 2026-07-24 13:58 UTC after explicit confirmation.
 
 ## Pre-Change Evidence
 
@@ -58,14 +58,14 @@ Live status:
 
 ## Post-Change Validation
 
-- [ ] RelayHub `/api/health` returns HTTP 200.
-- [ ] RelayHub `/api/ready` returns HTTP 200 with `{"status":"ready"}`.
-- [ ] A controlled RelayHub database-backed read workflow succeeds.
-- [ ] RelayHub logs have no PostgreSQL authentication failures.
-- [ ] Portal `/api/health` remains HTTP 200.
-- [ ] Portal sign-in with controlled invalid credentials reaches the expected UI.
-- [ ] Protected record counts in both databases are unchanged.
-- [ ] No other Sheldon environment uses `relayhub_sms_runtime`.
+- [x] RelayHub `/api/health` returns HTTP 200.
+- [x] RelayHub `/api/ready` returns HTTP 200 with `{"status":"ready"}`.
+- [x] A controlled RelayHub database-backed read workflow succeeds.
+- [x] RelayHub logs have no PostgreSQL authentication failures.
+- [x] Portal `/api/health` remains HTTP 200.
+- [x] Portal sign-in with controlled invalid credentials reaches the expected UI.
+- [x] Protected record counts in both databases are unchanged.
+- [x] No other Sheldon environment uses `relayhub_sms_runtime`.
 
 ## Rollback
 

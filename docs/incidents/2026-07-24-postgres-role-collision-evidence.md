@@ -157,10 +157,36 @@ Completed at 2026-07-24 13:46 UTC after Matthew's explicit confirmation.
 - Changed no portal environment, `appuser` attribute/password, canonical
   PostgreSQL password file, container, or application record.
 
-Pending separate confirmation:
+### Operation 3: RelayHub Deployment
 
-3. Recreate or redeploy only RelayHub.
+Completed at 2026-07-24 13:58 UTC after Matthew's explicit confirmation.
+
+- Deployed Sheldon release `20260724T135803Z`.
+- Recreated only `sheldon-relayhub-sms-app-1`.
+- Activated container `c0a05558b3c3`, started at
+  `2026-07-24T13:58:38.348701621Z`.
+- The deployment health gate used `/api/ready` and passed.
+- Applied no migration, reset, seed, restore, truncation, or record deletion.
+- Did not recreate PostgreSQL or the portal container.
 
 ## Post-Change Snapshot
 
-Pending authorized live recovery.
+Captured at 2026-07-24 13:59-14:02 UTC.
+
+- RelayHub public `GET /api/health`: HTTP 200, `{"status":"ok"}`.
+- RelayHub public `GET /api/ready`: HTTP 200, `{"status":"ready"}`.
+- The running RelayHub container uses `relayhub_sms_runtime`.
+- A controlled read-only query through the running RelayHub container confirmed
+  database `relayhub_sms`, role `relayhub_sms_runtime`, and
+  `schema_migrations = 20`.
+- RelayHub PostgreSQL authentication-failure log matches since deployment: `0`.
+- All 40 RelayHub table counts exactly matched the pre-change snapshot.
+- Portal public `GET /api/health`: HTTP 200, `{"status":"ok"}`.
+- All 33 portal table counts exactly matched the pre-change snapshot.
+- Portal controlled invalid-credentials sign-in reached
+  `/sign-in?error=credentials` and displayed
+  `Email or password is incorrect.`.
+- Sheldon application environments referencing `relayhub_sms_runtime`: `1`,
+  RelayHub only.
+- No database or application records were reset, seeded, restored, truncated, or
+  deleted during recovery.
