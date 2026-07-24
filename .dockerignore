@@ -1,4 +1,5 @@
 .git
+.gitignore
 .cache
 .next
 .env
@@ -10,4 +11,25 @@ packages/gateway/*.tsbuildinfo
 SMS Gateway.zip
 *.log
 .DS_Store
+backup
+backup/**
+backups
+backups/**
+**/*.dump
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*credentials*.json
+**/*secrets*.json
+**/*.tar
+**/*.tar.gz
+**/*.tgz
+**/*.zip
+**/*.7z
+release-artifacts
+release-artifacts/**
 docs/reviews

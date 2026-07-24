@@ -13,6 +13,8 @@
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed-admin": "node scripts/seed-admin.mjs",
     "deploy:check": "bash scripts/production-deploy-check.sh",
+    "release:audit": "node scripts/release-policy.mjs audit",
+    "release:package": "node scripts/release-policy.mjs package",
     "gateway:dev": "tsx packages/gateway/src/index.ts",
     "gateway:build": "tsc -p packages/gateway/tsconfig.json",
     "gateway:package": "bash scripts/package-gateway.sh"
