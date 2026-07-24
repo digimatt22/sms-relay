@@ -2,9 +2,9 @@
 
 ## Scope
 
-This runbook covers the current production target:
-- Next.js hub on Vercel or local Node-compatible hosting
-- Managed Postgres
+This runbook covers the Sheldon production target:
+- schema-2 Next.js application service
+- application-owned PostgreSQL 17 service and persistent volume
 - Raspberry Pi gateway appliances installed from `/install`
 
 ## Required Environment
@@ -13,6 +13,7 @@ Hub environment variables:
 
 ```bash
 DATABASE_URL=postgres://relayhub_sms_runtime:...@172.18.0.2:5432/relayhub_sms
+MIGRATION_DATABASE_URL=postgres://relayhub_sms_owner:...@postgres:5432/relayhub_sms
 AUTH_SECRET=...
 AUTH_URL=https://sns.digicolony.net
 NEXT_PUBLIC_APP_URL=https://sns.digicolony.net
@@ -21,7 +22,10 @@ INSTALLER_URL=https://sns.digicolony.net/install
 RELAYHUB_WEBHOOK_SECRET=...
 ```
 
-`DATABASE_URL` is server-only. Preserve its URL encoding and never print it.
+Both URLs are server-only and must be stored in separately scoped protected
+secrets. The application receives only `DATABASE_URL`; the separately
+authorized migration process receives only `MIGRATION_DATABASE_URL`. Preserve
+URL encoding and never print either value.
 RelayHub rejects normal runtime URLs whose decoded username is not
 `relayhub_sms_runtime`.
 
@@ -56,11 +60,19 @@ CREATE ROLE relayhub_sms_runtime
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  NOREPLICATION;
+  NOREPLICATION
+  CONNECTION LIMIT 20;
 
+ALTER ROLE relayhub_sms_runtime SET statement_timeout = '30s';
+ALTER ROLE relayhub_sms_runtime SET lock_timeout = '5s';
+ALTER ROLE relayhub_sms_runtime
+  SET idle_in_transaction_session_timeout = '30s';
+
+REVOKE ALL ON DATABASE relayhub_sms FROM PUBLIC;
 GRANT CONNECT ON DATABASE relayhub_sms TO relayhub_sms_runtime;
 
 \connect relayhub_sms
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO relayhub_sms_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE
   ON ALL TABLES IN SCHEMA public
@@ -69,20 +81,20 @@ GRANT USAGE, SELECT, UPDATE
   ON ALL SEQUENCES IN SCHEMA public
   TO relayhub_sms_runtime;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE relayhub_sms_migration_owner
+ALTER DEFAULT PRIVILEGES FOR ROLE relayhub_sms_owner
   IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES
   TO relayhub_sms_runtime;
-ALTER DEFAULT PRIVILEGES FOR ROLE relayhub_sms_migration_owner
+ALTER DEFAULT PRIVILEGES FOR ROLE relayhub_sms_owner
   IN SCHEMA public
   GRANT USAGE, SELECT, UPDATE ON SEQUENCES
   TO relayhub_sms_runtime;
 ```
 
-Replace `relayhub_sms_migration_owner` with the verified owner that will create
-future migration objects. Default privileges apply to objects created by that
-specific owner; applying them for an unrelated administrator does not protect
-future migrations. The runtime role receives no schema creation, DDL,
+The dedicated instance uses `relayhub_sms_owner` as its verified owner and
+migrator. Default privileges apply to objects created by that specific owner;
+applying them for an unrelated administrator does not protect future
+migrations. The runtime role receives no schema creation, DDL,
 superuser, role-management, or database-creation privileges and receives no
 application-data privileges in `appdb`.
 
@@ -145,25 +157,25 @@ generic response bodies, count comparisons, and redacted log results:
 7. Protected record counts in both databases match the pre-change snapshot.
 8. No other Sheldon environment references `relayhub_sms_runtime`.
 
-## Deployment
+## Migration And Deployment
 
-Before deploy:
+Before either operation:
 
 ```bash
 npm run deploy:check
+npm run sheldon:validate
 ```
 
-Deploy the hub, then run migrations:
+Migrations are a separate one-shot process and are never part of application
+deployment. After backup/restore evidence and explicit migration authority:
 
 ```bash
-npm run db:migrate
+npm run db:migrate:production
 ```
 
-To include migrations in the automated check when `DATABASE_URL` points at the intended database:
-
-```bash
-RUN_MIGRATIONS=1 npm run deploy:check
-```
+Stop again for explicit deployment/container-recreation authority before
+activating an application release. Application rollback never reruns a
+migration and never downgrades the database.
 
 Rebuild the gateway package after appliance-code changes:
 
@@ -179,10 +191,9 @@ public/gateway.tar.gz
 
 ## Post-Deploy Checks
 
-Run:
+After a separately authorized migration and deployment, run:
 
 ```bash
-npm run db:migrate
 curl -fsS https://sns.digicolony.net/api/health
 curl -fsS https://sns.digicolony.net/api/ready
 curl -X POST https://sns.digicolony.net/api/maintenance/run
@@ -201,50 +212,56 @@ Dashboard checks:
 
 ## Backup
 
-Managed Postgres should have provider-managed point-in-time recovery enabled.
-
-Manual logical backup:
+Write logical backups only to a pre-created protected directory outside the
+repository, release tree, Docker context, and build cache. The directory and
+file must be mode `0700` and `0600`, respectively. The schema-2 backup hook
+implements this command:
 
 ```bash
-pg_dump "$DATABASE_URL" \
+umask 077
+pg_dump "$SOURCE_BACKUP_DATABASE_URL" \
   --format=custom \
-  --file="relayhub-$(date +%Y%m%d-%H%M%S).dump"
+  --no-owner \
+  --no-acl \
+  --file="$PROTECTED_BACKUP_PATH"
+pg_restore --list "$PROTECTED_BACKUP_PATH"
 ```
 
 Recommended schedule:
 - daily logical backup retained for 30 days
-- provider PITR retained for at least 7 days
+- off-host protected copy or snapshot under a separately reviewed policy
 - pre-migration backup before schema changes
 
 ## Restore Drill
 
-Create a fresh database and restore:
+Create an isolated PostgreSQL 17 instance with a fresh volume and restore as
+`relayhub_sms_owner`:
 
 ```bash
-createdb relayhub_restore
 pg_restore \
   --clean \
   --if-exists \
-  --dbname="$RESTORE_DATABASE_URL" \
-  relayhub-YYYYMMDD-HHMMSS.dump
+  --no-owner \
+  --no-acl \
+  --exit-on-error \
+  --dbname="$ISOLATED_MIGRATION_DATABASE_URL" \
+  "$PROTECTED_BACKUP_PATH"
 ```
 
 Then validate:
 
 ```bash
-DATABASE_URL="$RESTORE_DATABASE_URL" npm run db:migrate
-DATABASE_URL="$RESTORE_DATABASE_URL" npm run build
+MIGRATION_DATABASE_URL="$ISOLATED_MIGRATION_DATABASE_URL" \
+  npm run db:migrate:production
+node scripts/database-compare.mjs
 ```
 
-Database checks:
-
-```sql
-select count(*) from organizations;
-select count(*) from messages;
-select count(*) from gateways;
-select count(*) from api_client_keys where status = 'active';
-select count(*) from gateway_keys where status = 'active';
-```
+Compare PostgreSQL major version and compatibility metadata, migration filenames,
+schema fingerprints, protected row counts, relationship checks, role
+attributes, ownership, and runtime grants. Exercise authorized message creation
+with a non-sending adapter plus expected missing-consent, STOP, invalid-key, and
+database-unavailable failures. Record elapsed backup, restore, compare, and
+smoke durations for the maintenance-window estimate.
 
 ## Rollback
 
@@ -266,6 +283,9 @@ Credential-isolation rollback:
 Database rollback:
 - prefer forward-fix migrations
 - restore from pre-migration backup only if data corruption or destructive migration failure occurs
+- for the instance move, fence writes and point Relay Hub back to the unchanged
+  source database if cutover verification fails; do not delete either instance
+  until closeout and separate retention approval
 
 ## Appliance Update
 

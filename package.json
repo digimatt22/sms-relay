@@ -11,10 +11,13 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:grants": "node scripts/apply-runtime-grants.mjs",
+    "db:migrate:production": "npm run db:migrate && npm run db:grants",
     "db:seed-admin": "node scripts/seed-admin.mjs",
     "deploy:check": "bash scripts/production-deploy-check.sh",
     "release:audit": "node scripts/release-policy.mjs audit",
     "release:package": "node scripts/release-policy.mjs package",
+    "sheldon:validate": "node scripts/validate-sheldon-manifest.mjs",
     "gateway:dev": "tsx packages/gateway/src/index.ts",
     "gateway:build": "tsc -p packages/gateway/tsconfig.json",
     "gateway:package": "bash scripts/package-gateway.sh"

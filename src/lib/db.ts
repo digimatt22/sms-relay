@@ -2,6 +2,9 @@ import pg from "pg";
 
 const { Pool } = pg;
 export const RELAYHUB_RUNTIME_DATABASE_ROLE = "relayhub_sms_runtime";
+const DEFAULT_POOL_MAX = 10;
+const DEFAULT_CONNECTION_TIMEOUT_MS = 5_000;
+const DEFAULT_IDLE_TIMEOUT_MS = 30_000;
 
 declare global {
   var relayhubPool: pg.Pool | undefined;
@@ -23,6 +26,11 @@ export function assertDedicatedRuntimeDatabaseRole(connectionString: string) {
   }
 }
 
+function positiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 function getPool() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -30,7 +38,18 @@ function getPool() {
   }
   assertDedicatedRuntimeDatabaseRole(connectionString);
   if (!globalThis.relayhubPool) {
-    globalThis.relayhubPool = new Pool({ connectionString });
+    globalThis.relayhubPool = new Pool({
+      connectionString,
+      max: positiveInteger(process.env.RELAYHUB_DB_POOL_MAX, DEFAULT_POOL_MAX),
+      connectionTimeoutMillis: positiveInteger(
+        process.env.RELAYHUB_DB_CONNECTION_TIMEOUT_MS,
+        DEFAULT_CONNECTION_TIMEOUT_MS,
+      ),
+      idleTimeoutMillis: positiveInteger(
+        process.env.RELAYHUB_DB_IDLE_TIMEOUT_MS,
+        DEFAULT_IDLE_TIMEOUT_MS,
+      ),
+    });
   }
   return globalThis.relayhubPool;
 }

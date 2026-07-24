@@ -3,14 +3,32 @@ import path from "node:path";
 import pg from "pg";
 
 const { Pool } = pg;
-const databaseUrl = process.env.DATABASE_URL;
+const OWNER_MIGRATOR_ROLE = "relayhub_sms_owner";
+const databaseUrl = process.env.MIGRATION_DATABASE_URL;
 
 if (!databaseUrl) {
-  console.error("DATABASE_URL is required");
+  console.error("MIGRATION_DATABASE_URL is required");
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: databaseUrl });
+let migrationRole;
+try {
+  migrationRole = decodeURIComponent(new URL(databaseUrl).username);
+} catch {
+  console.error("MIGRATION_DATABASE_URL is invalid");
+  process.exit(1);
+}
+if (migrationRole !== OWNER_MIGRATOR_ROLE) {
+  console.error(`MIGRATION_DATABASE_URL must use ${OWNER_MIGRATOR_ROLE}`);
+  process.exit(1);
+}
+
+const pool = new Pool({
+  connectionString: databaseUrl,
+  max: 1,
+  connectionTimeoutMillis: 5_000,
+  idleTimeoutMillis: 30_000,
+});
 const migrationsDir = path.join(process.cwd(), "migrations");
 
 try {

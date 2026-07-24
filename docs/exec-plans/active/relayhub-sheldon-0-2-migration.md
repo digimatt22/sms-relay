@@ -137,4 +137,9 @@ dry-run validation against non-production copies may continue automatically.
 - 2026-07-24: Created migration branch and pushed verified baseline commit.
 - 2026-07-24: Captured read-only Sheldon status, PostgreSQL version/ledger/count
   evidence, relationship checks, and historical dump-copy inventory.
-- 2026-07-24: Began Phase A implementation.
+- 2026-07-24: Completed and pushed Phase A exact-source packaging, exclusion
+  tests, and gated cleanup instructions.
+- 2026-07-24: Adopted the self-validating schema-2 manifest, dedicated
+  PostgreSQL 17 service/volume contract, bounded connections/timeouts, separate
+  owner/runtime roles, and separately authorized migrations. Full build and 97
+  tests passed.

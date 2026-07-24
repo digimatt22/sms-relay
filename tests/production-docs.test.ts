@@ -17,7 +17,7 @@ test("backup and deployment runbook documents migration, backup, restore, and ap
   const deployCheck = readFileSync("scripts/production-deploy-check.sh", "utf8");
 
   assert.match(docs, /npm run deploy:check/);
-  assert.match(docs, /npm run db:migrate/);
+  assert.match(docs, /npm run db:migrate:production/);
   assert.match(docs, /pg_dump/);
   assert.match(docs, /pg_restore/);
   assert.match(docs, /sudo systemctl restart relayhub-gateway/);
@@ -47,7 +47,14 @@ test("deployment contract isolates the RelayHub runtime role and uses readiness"
     "utf8",
   );
 
-  assert.equal(sheldon.health_path, "/api/ready");
+  assert.equal(sheldon.schema, 2);
+  assert.equal(sheldon.contract, "sheldon-deploy/0.2.0");
+  assert.equal(sheldon.services.app.readiness.path, "/api/ready");
+  assert.equal(sheldon.services.postgres.image, "postgres:17.10-bookworm");
+  assert.equal(sheldon.database.database_name, "relayhub_sms");
+  assert.equal(sheldon.database.owner_migrator_role, "relayhub_sms_owner");
+  assert.equal(sheldon.database.runtime_role, "relayhub_sms_runtime");
+  assert.equal(sheldon.database.migrations.deployment_coupled, false);
   assert.match(deploy, /relayhub_sms_runtime/);
   assert.match(deploy, /Never configure\s+RelayHub with the portal's `appuser`/);
   assert.match(incident, /passwords belong to the entire PostgreSQL\s+cluster/);

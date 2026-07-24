@@ -10,15 +10,13 @@ run npm run typecheck
 run npm test
 run npm run gateway:build
 run npm run build
+run npm run sheldon:validate
 
 if [[ "${PACKAGE_GATEWAY:-1}" != "0" ]]; then
   run npm run gateway:package
 fi
 
-if [[ -n "${DATABASE_URL:-}" && "${RUN_MIGRATIONS:-0}" == "1" ]]; then
-  run npm run db:migrate
-else
-  printf '\n==> skipping migrations; set RUN_MIGRATIONS=1 with DATABASE_URL to apply them\n'
-fi
+printf '\n==> database migrations are intentionally separate from application deployment\n'
+printf '    run npm run db:migrate:production only under explicit migration authority\n'
 
 printf '\nProduction deploy checks completed.\n'

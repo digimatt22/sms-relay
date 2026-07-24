@@ -1,22 +1,287 @@
 {
-  "schema": 1,
+  "schema": 2,
+  "contract": "sheldon-deploy/0.2.0",
   "name": "relayhub-sms",
-  "hostname": "sns.digicolony.net",
-  "framework": "nextjs",
-  "container_port": 3000,
-  "host_port": null,
-  "network_subnet": null,
-  "health_path": "/api/ready",
-  "dockerfile": "Dockerfile",
-  "requires_env": [
-    "DATABASE_URL",
-    "PLATFORM_NAME",
-    "AUTH_SECRET",
-    "AUTH_URL",
-    "NEXT_PUBLIC_APP_URL",
-    "RELAYHUB_PUBLIC_URL",
-    "INSTALLER_URL",
-    "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY",
-    "DEBUG_BYPASS_RECIPIENT_CONSENT"
-  ]
+  "release": {
+    "source": {
+      "vcs": "git",
+      "revision": "HEAD",
+      "require_clean_worktree": true,
+      "archive_command": "npm run release:package --",
+      "audit_command": "npm run release:audit --",
+      "digest": "sha256",
+      "provenance": true,
+      "permitted_generated_artifacts": [
+        "*.tar.gz.provenance.json",
+        "*.tar.gz.sha256"
+      ],
+      "exclusions": [
+        "backup/",
+        "backups/",
+        "*.dump",
+        "*.db",
+        "*.sqlite",
+        "*.sqlite3",
+        ".env",
+        ".env.*",
+        "*.pem",
+        "*.key",
+        "*.p12",
+        "*.pfx",
+        "*credentials*.json",
+        "*secrets*.json",
+        "*.tar",
+        "*.tar.gz",
+        "*.tgz",
+        "*.zip",
+        "*.7z"
+      ]
+    }
+  },
+  "services": {
+    "app": {
+      "process_type": "web",
+      "build": {
+        "context": "release_archive",
+        "dockerfile": "Dockerfile",
+        "target": "runner",
+        "secrets": [
+          "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
+        ]
+      },
+      "command": [
+        "node",
+        "server.js"
+      ],
+      "container_port": 3000,
+      "user": "nextjs",
+      "dependencies": {
+        "postgres": "ready"
+      },
+      "resources": {
+        "cpus": 1,
+        "memory": "768M",
+        "pids": 256
+      },
+      "restart": {
+        "policy": "unless-stopped"
+      },
+      "shutdown": {
+        "signal": "SIGTERM",
+        "grace_period_seconds": 30
+      },
+      "liveness": {
+        "path": "/api/health",
+        "interval_seconds": 15,
+        "timeout_seconds": 3,
+        "failure_threshold": 4
+      },
+      "readiness": {
+        "path": "/api/ready",
+        "interval_seconds": 5,
+        "timeout_seconds": 3,
+        "failure_threshold": 12
+      }
+    },
+    "postgres": {
+      "process_type": "database",
+      "image": "postgres:17.10-bookworm",
+      "command": [
+        "postgres",
+        "-c",
+        "max_connections=60",
+        "-c",
+        "shared_buffers=128MB"
+      ],
+      "publish_ports": false,
+      "resources": {
+        "cpus": 1,
+        "memory": "768M",
+        "pids": 256
+      },
+      "restart": {
+        "policy": "unless-stopped"
+      },
+      "shutdown": {
+        "signal": "SIGTERM",
+        "grace_period_seconds": 60
+      },
+      "liveness": {
+        "command": [
+          "pg_isready",
+          "-U",
+          "relayhub_sms_owner",
+          "-d",
+          "relayhub_sms"
+        ],
+        "interval_seconds": 10,
+        "timeout_seconds": 5,
+        "failure_threshold": 6
+      },
+      "readiness": {
+        "command": [
+          "pg_isready",
+          "-U",
+          "relayhub_sms_owner",
+          "-d",
+          "relayhub_sms"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 5,
+        "failure_threshold": 12
+      },
+      "volumes": [
+        {
+          "name": "relayhub_sms_postgres_data",
+          "target": "/var/lib/postgresql/data"
+        }
+      ],
+      "initialization": {
+        "source": "scripts/postgres-init.sh",
+        "target": "/docker-entrypoint-initdb.d/010-relayhub-runtime.sh",
+        "read_only": true
+      }
+    }
+  },
+  "ingress": {
+    "service": "app",
+    "hostname": "sns.digicolony.net",
+    "loopback_only": true,
+    "container_port": 3000,
+    "caddy": true
+  },
+  "networks": {
+    "application": {
+      "subnet": "10.246.135.0/24",
+      "collision_check": true,
+      "internal_database": true
+    },
+    "approved_dependencies": []
+  },
+  "secrets": {
+    "runtime": {
+      "app": [
+        "DATABASE_URL",
+        "PLATFORM_NAME",
+        "AUTH_SECRET",
+        "AUTH_URL",
+        "NEXT_PUBLIC_APP_URL",
+        "RELAYHUB_PUBLIC_URL",
+        "INSTALLER_URL",
+        "DEBUG_BYPASS_RECIPIENT_CONSENT",
+        "RELAYHUB_DB_POOL_MAX",
+        "RELAYHUB_DB_CONNECTION_TIMEOUT_MS",
+        "RELAYHUB_DB_IDLE_TIMEOUT_MS"
+      ],
+      "postgres": [
+        "POSTGRES_PASSWORD",
+        "RELAYHUB_DB_RUNTIME_PASSWORD"
+      ]
+    },
+    "migration": [
+      "MIGRATION_DATABASE_URL"
+    ],
+    "build": [
+      "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
+    ]
+  },
+  "storage": {
+    "volumes": {
+      "relayhub_sms_postgres_data": {
+        "owner_service": "postgres",
+        "persistent": true,
+        "backup_required": true,
+        "collision_check": true
+      }
+    },
+    "dependencies": []
+  },
+  "database": {
+    "isolation_tier": "platform-critical",
+    "service": "postgres",
+    "engine": "postgresql",
+    "version": {
+      "major": 17,
+      "baseline": "17.10",
+      "preserve_major": true,
+      "upgrade_requires_separate_plan": true
+    },
+    "database_name": "relayhub_sms",
+    "owner_migrator_role": "relayhub_sms_owner",
+    "runtime_role": "relayhub_sms_runtime",
+    "runtime_owns_schema": false,
+    "public_privileges_revoked": true,
+    "connection_limits": {
+      "server": 60,
+      "runtime_role": 20,
+      "application_pool": 10
+    },
+    "timeouts": {
+      "connect_ms": 5000,
+      "statement_ms": 30000,
+      "lock_ms": 5000,
+      "idle_in_transaction_ms": 30000
+    },
+    "migrations": {
+      "deployment_coupled": false,
+      "process_type": "migration",
+      "command": "npm run db:migrate:production",
+      "requires_explicit_authority": true
+    },
+    "backup": {
+      "command": "scripts/database-backup.sh",
+      "format": "pg_custom",
+      "mode": "0600",
+      "requires_explicit_authority": true
+    },
+    "restore_check": {
+      "command": "scripts/database-restore-check.sh",
+      "isolated": true,
+      "compare_command": "node scripts/database-compare.mjs"
+    }
+  },
+  "rollout": {
+    "preflight": [
+      "npm run deploy:check",
+      "npm run sheldon:validate"
+    ],
+    "deploy_lock": true,
+    "health_deadline_seconds": 120,
+    "rollback": {
+      "application_only": true,
+      "database_downgrade": false,
+      "automatic_on_failed_readiness": true
+    },
+    "release_retention": {
+      "healthy_releases": 5
+    },
+    "cleanup": {
+      "automatic": false,
+      "requires_explicit_authority": true
+    }
+  },
+  "observability": {
+    "status_format": "json",
+    "dependency_checks": [
+      "public_https",
+      "app_liveness",
+      "app_readiness",
+      "postgres_readiness",
+      "postgres_volume",
+      "backup_age",
+      "disk",
+      "memory",
+      "build_cache"
+    ],
+    "alert_policy": {
+      "watchdog_scope": "host",
+      "relayhub_sms_for_other_services": true,
+      "relayhub_self_alert_via_sms_only": false,
+      "independent_fallback_required": true,
+      "independent_fallback_selected": false,
+      "deduplicate": true,
+      "include_secrets_or_message_content": false
+    },
+    "audit_destination": "sheldon-host-journal"
+  }
 }
