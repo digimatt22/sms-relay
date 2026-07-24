@@ -32,8 +32,10 @@ requireValue(manifest.services.postgres.publish_ports === false, "PostgreSQL can
 requireValue(manifest.ingress.loopback_only === true, "public ingress must be loopback only");
 requireValue(manifest.database.isolation_tier === "platform-critical", "Relay Hub database must be dedicated");
 requireValue(manifest.database.database_name === "relayhub_sms", "database semantics changed");
+requireValue(manifest.database.cluster_admin_role === "relayhub_sms_cluster_admin", "cluster administrator role changed");
 requireValue(manifest.database.owner_migrator_role === "relayhub_sms_owner", "owner/migrator role changed");
 requireValue(manifest.database.runtime_role === "relayhub_sms_runtime", "runtime role changed");
+requireValue(manifest.database.cluster_admin_role !== manifest.database.owner_migrator_role, "cluster admin must be separate from owner/migrator");
 requireValue(manifest.database.owner_migrator_role !== manifest.database.runtime_role, "runtime must not own schema");
 requireValue(manifest.database.runtime_owns_schema === false, "runtime schema ownership is prohibited");
 requireValue(manifest.database.version.major === 17, "PostgreSQL major version must remain 17");

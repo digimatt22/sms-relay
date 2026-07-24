@@ -24,10 +24,11 @@ but it must not package or deploy this schema-2 manifest.
 - Set `PLATFORM_NAME` to the customer-facing brand shown in page titles, navigation, authentication, and security SMS messages.
 - Set `DEBUG_BYPASS_RECIPIENT_CONSENT=true` only on development deployments to bypass verified opt-in records. Active programs, STOP opt-outs, and platform suppressions remain enforced. Leave it `false` everywhere else.
 - RelayHub owns a dedicated PostgreSQL 17 instance and persistent volume. Keep
-  the database name `relayhub_sms`, use `relayhub_sms_owner` only for
-  initialization/migration, and use the non-owning `relayhub_sms_runtime` role
-  for the application. Never configure RelayHub with the portal's `appuser`,
-  change `appuser`, or copy the portal's canonical PostgreSQL password.
+  the database name `relayhub_sms`. The container bootstrap administrator is
+  `relayhub_sms_cluster_admin`; use the non-superuser `relayhub_sms_owner` only
+  for ownership/migration and the non-owning `relayhub_sms_runtime` role for
+  the application. Never configure RelayHub with the portal's `appuser`, change
+  `appuser`, or copy the portal's canonical PostgreSQL password.
 - Keep RelayHub's `DATABASE_URL` in
   `~/.config/sheldon/secrets/relayhub-sms.env`. It must retain the dedicated
   role, `relayhub_sms` database, expected host and port, and correct URL

@@ -122,7 +122,10 @@ export async function publishPlatformEventInTransaction(client: pg.PoolClient, i
           AND s.status = 'active'
           AND s.disabled_at IS NULL
           AND ('*' = ANY(s.event_types) OR $7 = ANY(s.event_types))
-       ON CONFLICT (webhook_subscription_id, platform_event_id) DO NOTHING`,
+       ON CONFLICT (webhook_subscription_id, platform_event_id)
+       WHERE webhook_subscription_id IS NOT NULL
+         AND platform_event_id IS NOT NULL
+       DO NOTHING`,
       [
         input.organizationId,
         input.messageId || null,

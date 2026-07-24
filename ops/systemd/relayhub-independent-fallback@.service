@@ -1,0 +1,11 @@
+[Unit]
+Description=Independent fallback notification for failed unit %i
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/sheldon/watchdog/relayhub-fallback.env
+ExecStart=/usr/local/libexec/relayhub-independent-fallback %i
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

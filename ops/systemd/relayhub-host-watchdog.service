@@ -1,0 +1,17 @@
+[Unit]
+Description=Relay Hub external host watchdog
+After=network-online.target
+Wants=network-online.target
+OnFailure=relayhub-independent-fallback@%n.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/sheldon/watchdog/relayhub-host-watchdog.env
+ExecStart=%h/sheldon/ops/relayhub-host-watchdog.sh
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/sheldon/watchdog

@@ -44,8 +44,16 @@ test("Relay Hub owns PostgreSQL 17 storage but runtime does not own schema", () 
   assert.equal(manifest.database.version.major, 17);
   assert.equal(manifest.database.version.preserve_major, true);
   assert.equal(manifest.database.database_name, "relayhub_sms");
+  assert.equal(
+    manifest.database.cluster_admin_role,
+    "relayhub_sms_cluster_admin",
+  );
   assert.equal(manifest.database.owner_migrator_role, "relayhub_sms_owner");
   assert.equal(manifest.database.runtime_role, "relayhub_sms_runtime");
+  assert.notEqual(
+    manifest.database.cluster_admin_role,
+    manifest.database.owner_migrator_role,
+  );
   assert.notEqual(
     manifest.database.owner_migrator_role,
     manifest.database.runtime_role,

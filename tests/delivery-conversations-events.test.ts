@@ -36,6 +36,14 @@ test("message event envelopes use the message-level delivery timestamp", () => {
   assert.doesNotMatch(eventContract, /finalized_at, delivery_reported_at\s+FROM messages/);
 });
 
+test("webhook delivery deduplication targets its partial unique index", () => {
+  const events = readFileSync("src/lib/event-contract.ts", "utf8");
+  assert.match(
+    events,
+    /ON CONFLICT \(webhook_subscription_id, platform_event_id\)\s+WHERE webhook_subscription_id IS NOT NULL\s+AND platform_event_id IS NOT NULL\s+DO NOTHING/,
+  );
+});
+
 test("opt-out and reconsent transitions publish canonical key-level events", () => {
   const authorizations = readFileSync("src/lib/recipient-authorizations.ts", "utf8");
   assert.match(authorizations, /eventType: "recipient\.opt_out\.recorded"/);

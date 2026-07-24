@@ -17,7 +17,7 @@ or unusable role prevents release activation.
 Run these from the project root:
 
 ```bash
-npm run db:migrate
+npm run db:migrate:production
 npm run typecheck
 npm test
 npm run gateway:build
@@ -27,8 +27,12 @@ npm run build
 When using the local Docker Postgres database:
 
 ```bash
-DATABASE_URL=postgres://relayhub_sms_runtime:relayhub@localhost:5433/relayhub_sms npm run db:migrate
+MIGRATION_DATABASE_URL=postgres://relayhub_sms_owner:...@localhost:5433/relayhub_sms \
+  npm run db:migrate:production
 ```
+
+Never run migrations with the runtime URL. Migrations are separate from
+application deployment and require explicit authority in production.
 
 ## Automated Probes
 
@@ -101,6 +105,10 @@ Current rules:
 - queue depth above threshold
 - stuck `sending` messages
 - repeated callback delivery failures
+
+This authenticated endpoint and its database-backed rules do not monitor Relay
+Hub itself. The external host watchdog and independently operated fallback
+contract are documented in `docs/runbooks/relayhub-host-monitoring.md`.
 
 ## Gateway And Client Key Operations
 

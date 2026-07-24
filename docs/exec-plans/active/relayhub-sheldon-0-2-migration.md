@@ -143,3 +143,9 @@ dry-run validation against non-production copies may continue automatically.
   PostgreSQL 17 service/volume contract, bounded connections/timeouts, separate
   owner/runtime roles, and separately authorized migrations. Full build and 97
   tests passed.
+- 2026-07-24: Completed the protected backup and isolated PostgreSQL 17.10
+  restore drill. Schema, ledger, protected counts, relationships, roles, and
+  SMS success/failure paths passed. The drill found and fixed the webhook
+  partial-index conflict target. Recommended production window: 20 minutes.
+- 2026-07-24: Added host-level watchdog/systemd contracts. Installation remains
+  blocked until Matthew selects and tests an independent fallback channel.

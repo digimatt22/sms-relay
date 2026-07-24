@@ -46,10 +46,12 @@ PostgreSQL roles are cluster-global. A password belongs to a role, not to each
 database that role can access. RelayHub must never use or alter the portal's
 `appuser` role.
 
-Create the runtime role through a privileged, server-local PostgreSQL session.
-Supply its password through a non-echoing prompt or an existing protected
-server-side value; never put it in shell history, command output, a repository
-file, or a deployment archive.
+The dedicated container bootstraps with `relayhub_sms_cluster_admin`, then
+creates the non-superuser `relayhub_sms_owner` owner/migrator and the
+least-privilege runtime role through a privileged, server-local PostgreSQL
+session. Supply passwords through protected server-side secret files; never put
+them in shell history, command output, a repository file, or a deployment
+archive.
 
 The required SQL contract is:
 

@@ -7,7 +7,7 @@ DigiColony SNS is a locally runnable SMS gateway hub with an admin dashboard, Po
 1. Copy `.env.example` to `.env.local` and set `AUTH_SECRET`.
 2. Start Postgres:
    ```sh
-   docker compose up -d postgres
+   docker compose --env-file .env.local up -d postgres
    ```
 3. Install dependencies:
    ```sh
@@ -15,7 +15,7 @@ DigiColony SNS is a locally runnable SMS gateway hub with an admin dashboard, Po
    ```
 4. Run migrations and seed an admin:
    ```sh
-   npm run db:migrate
+   npm run db:migrate:production
    npm run db:seed-admin
    ```
 5. Start the dashboard:
@@ -39,6 +39,13 @@ RelayHub must never share or modify another application's role such as
 `appuser`. `GET /api/health` reports database-independent liveness and
 `GET /api/ready` reports database-backed readiness without exposing database
 errors.
+
+Local Compose uses PostgreSQL 17.10 and the same three-role contract as the
+schema-2 deployment: `relayhub_sms_cluster_admin` bootstraps the instance,
+`relayhub_sms_owner` owns and migrates, and `relayhub_sms_runtime` is the
+application login. An existing PostgreSQL 16 local volume cannot be mounted
+directly by PostgreSQL 17; back it up and restore it, or explicitly replace it
+only if the local data is disposable.
 
 ## Gateway Installer
 

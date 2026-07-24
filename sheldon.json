@@ -175,6 +175,7 @@
       ],
       "postgres": [
         "POSTGRES_PASSWORD",
+        "RELAYHUB_DB_OWNER_PASSWORD",
         "RELAYHUB_DB_RUNTIME_PASSWORD"
       ]
     },
@@ -207,6 +208,7 @@
       "upgrade_requires_separate_plan": true
     },
     "database_name": "relayhub_sms",
+    "cluster_admin_role": "relayhub_sms_cluster_admin",
     "owner_migrator_role": "relayhub_sms_owner",
     "runtime_role": "relayhub_sms_runtime",
     "runtime_owns_schema": false,

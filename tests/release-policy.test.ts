@@ -1,10 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {
-  assertReleasePathsSafe,
-  prohibitedReleasePaths,
-} from "../scripts/release-policy.mjs";
+// @ts-expect-error The deployment CLI is intentionally plain ESM for Node.
+import { assertReleasePathsSafe, prohibitedReleasePaths } from "../scripts/release-policy.mjs";
 
 test("release policy rejects backups, databases, secrets, keys, and archives", () => {
   const candidates = [
