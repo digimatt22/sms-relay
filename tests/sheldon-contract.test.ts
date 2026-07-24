@@ -35,6 +35,20 @@ test("release and Docker build inputs are exact, clean, and audited", () => {
   assert.ok(manifest.release.source.exclusions.includes("backups/"));
   assert.ok(manifest.release.source.exclusions.includes("*.dump"));
   assert.ok(manifest.release.source.exclusions.includes(".env.*"));
+
+  const dockerfile = readFileSync("Dockerfile", "utf8");
+  assert.match(dockerfile, /RUN mkdir -p public/);
+  assert.match(
+    dockerfile,
+    /id=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY,required=true/,
+  );
+  assert.match(dockerfile, /AS migration/);
+  assert.match(dockerfile, /CMD \["npm", "run", "db:migrate:production"\]/);
+  assert.doesNotMatch(
+    dockerfile,
+    /FROM node:22-alpine AS runner[\s\S]*COPY --from=builder[^\n]*\/app\/migrations/,
+  );
+  assert.doesNotMatch(dockerfile, /id=sheldon_app_env/);
 });
 
 test("Relay Hub owns PostgreSQL 17 storage but runtime does not own schema", () => {
@@ -67,6 +81,7 @@ test("Relay Hub owns PostgreSQL 17 storage but runtime does not own schema", () 
 
 test("migrations, cleanup, and database rollback remain separately gated", () => {
   assert.equal(manifest.database.migrations.deployment_coupled, false);
+  assert.equal(manifest.database.migrations.build_target, "migration");
   assert.equal(
     manifest.database.migrations.requires_explicit_authority,
     true,

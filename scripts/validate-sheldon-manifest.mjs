@@ -41,6 +41,7 @@ requireValue(manifest.database.runtime_owns_schema === false, "runtime schema ow
 requireValue(manifest.database.version.major === 17, "PostgreSQL major version must remain 17");
 requireValue(manifest.database.version.preserve_major === true, "major-version preservation is required");
 requireValue(manifest.database.migrations.deployment_coupled === false, "migrations cannot run during deploy");
+requireValue(manifest.database.migrations.build_target === "migration", "migration build target is required");
 requireValue(manifest.database.migrations.requires_explicit_authority === true, "migration authority gate missing");
 requireValue(manifest.database.backup.requires_explicit_authority === true, "backup authority gate missing");
 requireValue(manifest.rollout.rollback.database_downgrade === false, "rollback cannot downgrade the database");

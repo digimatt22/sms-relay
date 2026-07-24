@@ -74,6 +74,12 @@ predicate. The code now targets the partial index with the matching
 `WHERE webhook_subscription_id IS NOT NULL AND platform_event_id IS NOT NULL`
 predicate. The rerun passed.
 
+The first exact-archive Docker build also exposed that the ignored/generated
+local `public/` directory was absent from a clean Git archive. The Dockerfile
+now creates it explicitly before the Next.js build and consumes the named
+schema-2 BuildKit secret directly. This prevents workspace-only files from
+being needed for a successful production image build.
+
 ## Timing and maintenance window
 
 Measured on the current small dataset:

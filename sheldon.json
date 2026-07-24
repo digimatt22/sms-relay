@@ -227,6 +227,7 @@
     "migrations": {
       "deployment_coupled": false,
       "process_type": "migration",
+      "build_target": "migration",
       "command": "npm run db:migrate:production",
       "requires_explicit_authority": true
     },
