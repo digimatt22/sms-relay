@@ -60,6 +60,8 @@ test("isolated smoke covers authorized and expected-failure SMS paths", () => {
   const smoke = readFileSync("scripts/database-smoke.ts", "utf8");
 
   assert.match(smoke, /authorized_sms_queue/);
+  assert.match(smoke, /recipient_registration/);
+  assert.match(smoke, /challenge_queued_and_event_published/);
   assert.match(smoke, /missing_consent/);
   assert.match(smoke, /stop_suppression/);
   assert.match(smoke, /invalid_credentials/);

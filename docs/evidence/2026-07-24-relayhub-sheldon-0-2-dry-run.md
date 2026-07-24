@@ -64,6 +64,9 @@ All tests ran only against the ephemeral restored database:
 - invalid API credentials were rejected;
 - one authorized API SMS path queued successfully with a non-sending smoke
   marker and was not claimed by a gateway;
+- one hosted recipient-registration path created a pending challenge, queued
+  its verification SMS, and published
+  `recipient.authorization.challenge_sent`;
 - missing recipient consent was rejected;
 - active STOP/opt-out suppression was enforced;
 - unavailable database readiness returned the generic HTTP-503 contract.

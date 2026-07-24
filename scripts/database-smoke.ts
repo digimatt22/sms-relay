@@ -4,6 +4,7 @@ import pg from "pg";
 import { authenticateApiClient, createApiClient } from "@/lib/api-clients";
 import { createMessage } from "@/lib/messages";
 import { checkDatabaseReadiness } from "@/lib/readiness";
+import { requestRecipientAuthorization } from "@/lib/recipient-authorizations";
 
 const migrationUrl = process.env.MIGRATION_DATABASE_URL;
 if (!migrationUrl) throw new Error("MIGRATION_DATABASE_URL is required");
@@ -16,6 +17,7 @@ const programId = randomUUID();
 const disclosureId = randomUUID();
 const templateId = randomUUID();
 const authorizedPhone = `+15551${suffix.replace(/\D/g, "").padEnd(6, "0").slice(0, 6)}`;
+const registrationPhone = `+15552${suffix.replace(/\D/g, "").padEnd(6, "1").slice(0, 6)}`;
 const missingConsentPhone = "+15550001001";
 const stoppedPhone = "+15550001002";
 
@@ -47,7 +49,8 @@ try {
   await owner.query(
     `INSERT INTO verification_template_versions (
        id, messaging_program_id, version, template_text, content_hash, status
-     ) VALUES ($1, $2, 1, 'Code {{code}}. Reply STOP to opt out.',
+     ) VALUES ($1, $2, 1,
+               '{client_name}: Verify your request for {program_name} texts. Code {code}. {frequency_notice}. Reply STOP to cancel or HELP for help. Msg & data rates may apply.',
                'restore-smoke-template', 'approved')`,
     [templateId, programId],
   );
@@ -72,6 +75,39 @@ try {
   const invalid = await authenticateApiClient("relayhub_invalid_restore_key");
   assert.equal(invalid, null);
   evidence.invalid_credentials = "rejected";
+
+  const registration = await requestRecipientAuthorization({
+    organizationId,
+    programId,
+    phoneNumber: registrationPhone,
+    consentSource: "hosted",
+    recipientInitiated: true,
+    evidenceReference: `restore-smoke:${suffix}`,
+    actorType: "recipient",
+  });
+  assert.equal(registration.status, "challenge_pending");
+  const registrationResult = await owner.query(
+    `SELECT c.status AS challenge_status, m.status AS message_status,
+            EXISTS (
+              SELECT 1
+                FROM platform_events e
+               WHERE e.recipient_authorization_id = a.id
+                 AND e.event_type = 'recipient.authorization.challenge_sent'
+            ) AS event_published
+       FROM recipient_authorizations a
+       JOIN verification_challenges c ON c.recipient_authorization_id = a.id
+       JOIN messages m ON m.id = c.message_id
+      WHERE a.id = $1
+      ORDER BY c.created_at DESC
+      LIMIT 1`,
+    [registration.id],
+  );
+  assert.deepEqual(registrationResult.rows[0], {
+    challenge_status: "pending",
+    message_status: "queued",
+    event_published: true,
+  });
+  evidence.recipient_registration = "challenge_queued_and_event_published";
 
   const authResult = await owner.query(
     `INSERT INTO recipient_authorizations (

@@ -211,11 +211,19 @@ async function resolveEventSource(client: pg.PoolClient, input: PublishEventInpu
 
   if (input.recipientAuthorizationId) {
     const result = await client.query(
-      `SELECT created_by_api_client_id, created_by_api_client_key_id,
-              phone_number_redacted, status, consent_source, authorized_at,
-              expires_at, revoked_at
-         FROM recipient_authorizations
-        WHERE id = $1`,
+      `SELECT a.created_by_api_client_id, a.created_by_api_client_key_id,
+              a.phone_number_redacted, a.status, a.consent_source,
+              a.verified_at AS authorized_at,
+              challenge.expires_at, a.revoked_at
+         FROM recipient_authorizations a
+         LEFT JOIN LATERAL (
+           SELECT c.expires_at
+             FROM verification_challenges c
+            WHERE c.recipient_authorization_id = a.id
+            ORDER BY c.created_at DESC
+            LIMIT 1
+         ) challenge ON true
+        WHERE a.id = $1`,
       [input.recipientAuthorizationId]
     );
     const authorization = result.rows[0];
