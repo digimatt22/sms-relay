@@ -70,6 +70,9 @@ test("release candidates audit a detached commit with the team marketplace", () 
   assert.match(audit, /Digicolony\/digicolony-codex-marketplace/);
   assert.match(audit, /digicolony-codex-marketplace/);
   assert.match(audit, /installed caches are not accepted/);
+  assert.match(audit, /sys\.dont_write_bytecode = True/);
+  assert.match(audit, /team-marketplace checkout is not clean/);
+  assert.match(audit, /--untracked-files=all/);
   assert.match(audit, /compatibility_audit_only/);
   assert.match(audit, /schema2_deployment_supported/);
   assert.doesNotMatch(audit, /\.codex\/plugins\/cache|\.codex\/plugins/);

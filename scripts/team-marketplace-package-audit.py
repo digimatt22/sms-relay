@@ -11,6 +11,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+sys.dont_write_bytecode = True
+
 
 DEFAULT_MARKETPLACE = Path(
     "/Users/mwood/Documents/Digicolony/digicolony-codex-marketplace"
@@ -44,6 +46,27 @@ def git_commit(repository: Path) -> str:
         capture_output=True,
         text=True,
     ).stdout.strip()
+
+
+def require_clean_marketplace(repository: Path) -> str:
+    status = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository),
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    if status:
+        raise RuntimeError(
+            "team-marketplace checkout is not clean; audit provenance is ambiguous"
+        )
+    return git_commit(repository)
 
 
 def main() -> int:
@@ -82,6 +105,7 @@ def main() -> int:
         raise RuntimeError(
             f"team-marketplace Sheldon {plugin_version} lacks exact-source package auditing"
         )
+    marketplace_commit = require_clean_marketplace(marketplace)
 
     relay_manifest = json.loads((project / "sheldon.json").read_text())
     if relay_manifest.get("schema") != 2:
@@ -113,7 +137,7 @@ def main() -> int:
             "source": "team-marketplace",
             "plugin": plugin_manifest["name"],
             "version": plugin_version,
-            "marketplace_commit": git_commit(marketplace),
+            "marketplace_commit": marketplace_commit,
             "schema2_deployment_supported": version_tuple(plugin_version) >= (0, 2, 0),
             "compatibility_audit_only": version_tuple(plugin_version) < (0, 2, 0),
         },
