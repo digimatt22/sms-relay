@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const PROHIBITED_RELEASE_PATHS = [
   /(^|\/)backups?(\/|$)/i,
@@ -145,7 +146,10 @@ async function main() {
   );
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
+) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;

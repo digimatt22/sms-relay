@@ -12,6 +12,7 @@
       "digest": "sha256",
       "provenance": true,
       "permitted_generated_artifacts": [
+        "team-marketplace-package-audit.json",
         "*.tar.gz.provenance.json",
         "*.tar.gz.sha256"
       ],

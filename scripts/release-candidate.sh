@@ -46,5 +46,25 @@ python3 "$source_worktree/scripts/team-marketplace-package-audit.py" \
   --expected-commit "$commit" \
   --output "$output_dir/team-marketplace-package-audit.json"
 
-node "$source_worktree/scripts/release-policy.mjs" \
-  package "$output_dir" "$commit"
+(
+  cd "$source_worktree"
+  node scripts/release-policy.mjs package "$output_dir" "$commit"
+)
+
+short_commit="${commit:0:12}"
+archive_name="relayhub-sms-$short_commit.tar.gz"
+for required in \
+  "$output_dir/$archive_name" \
+  "$output_dir/$archive_name.provenance.json" \
+  "$output_dir/$archive_name.sha256" \
+  "$output_dir/team-marketplace-package-audit.json"
+do
+  if [[ ! -f "$required" ]]; then
+    printf 'release candidate output is incomplete: %s\n' "$required" >&2
+    exit 1
+  fi
+done
+(
+  cd "$output_dir"
+  shasum -a 256 -c "$archive_name.sha256"
+)

@@ -65,6 +65,8 @@ test("release candidates audit a detached commit with the team marketplace", () 
   assert.match(candidate, /team-marketplace-package-audit\.py/);
   assert.match(candidate, /requires a clean primary worktree/);
   assert.match(candidate, /release-policy\.mjs/);
+  assert.match(candidate, /release candidate output is incomplete/);
+  assert.match(candidate, /shasum -a 256 -c/);
   assert.match(audit, /Digicolony\/digicolony-codex-marketplace/);
   assert.match(audit, /digicolony-codex-marketplace/);
   assert.match(audit, /installed caches are not accepted/);
@@ -76,4 +78,10 @@ test("release candidates audit a detached commit with the team marketplace", () 
     statSync("scripts/team-marketplace-package-audit.py").mode & 0o111,
     0o111,
   );
+});
+
+test("release CLI entrypoint resolves its executable path safely", () => {
+  const policy = readFileSync("scripts/release-policy.mjs", "utf8");
+  assert.match(policy, /fileURLToPath\(import\.meta\.url\)/);
+  assert.match(policy, /path\.resolve\(process\.argv\[1\]\)/);
 });

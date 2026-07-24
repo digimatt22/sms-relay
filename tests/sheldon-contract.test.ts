@@ -40,6 +40,11 @@ test("release and Docker build inputs are exact, clean, and audited", () => {
     "npm run release:team-audit --",
   );
   assert.equal(manifest.services.app.build.context, "release_archive");
+  assert.ok(
+    manifest.release.source.permitted_generated_artifacts.includes(
+      "team-marketplace-package-audit.json",
+    ),
+  );
   assert.ok(manifest.release.source.exclusions.includes("backups/"));
   assert.ok(manifest.release.source.exclusions.includes("*.dump"));
   assert.ok(manifest.release.source.exclusions.includes(".env.*"));
