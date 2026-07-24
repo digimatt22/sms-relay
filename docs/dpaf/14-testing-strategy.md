@@ -10,6 +10,10 @@ Status: Draft.
 - Integration tests for atomic claim behavior under concurrent gateway requests.
 - Integration tests for expired lease re-claim.
 - Integration tests for logs and health ingestion.
+- Unit tests for readiness success, database-independent liveness, and generic
+  readiness failure responses that do not expose database details.
+- Configuration tests that reject runtime database usernames other than
+  `relayhub_sms_runtime`.
 - Component tests for dashboard tables/forms where practical.
 
 ## Hardware/Service Tests

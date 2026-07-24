@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: relayhub
+      POSTGRES_USER: relayhub_sms_runtime
       POSTGRES_PASSWORD: relayhub
       POSTGRES_DB: relayhub_sms
     ports:

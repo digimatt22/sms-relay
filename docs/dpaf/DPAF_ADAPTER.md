@@ -16,6 +16,11 @@
 - Source artifacts to read first: application source, migrations, `docs/dpaf/PRD.md`, `docs/dpaf/20-production-expansion-plan.md`, and current operator runbooks.
 - Generated DPAF docs path: `docs/dpaf/`
 - Implementation source path: repository root
+- Production database: `relayhub_sms` on Sheldon's shared PostgreSQL server.
+- Production runtime role: dedicated `relayhub_sms_runtime`; RelayHub must not
+  use or alter the portal's cluster-global `appuser` role.
+- Operational probes: `/api/health` for database-independent liveness and
+  `/api/ready` for database-aware readiness.
 
 ## Boundaries
 

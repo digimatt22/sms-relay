@@ -44,6 +44,16 @@ Use a cloud hub plus remote gateway appliance model.
 - Admin can rotate/revoke gateway keys.
 - Gateway endpoints reject disabled gateways.
 - Store only redacted modem traces if they may contain phone numbers or message body.
+- RelayHub's production database login is the dedicated
+  `relayhub_sms_runtime` role. PostgreSQL roles are cluster-global, so runtime
+  roles cannot be shared across Sheldon applications even when they connect to
+  different databases.
+- The runtime connection rejects any username other than
+  `relayhub_sms_runtime`. Migration/owner access is an operator concern and is
+  not a normal application runtime credential.
+- `/api/health` is database-independent liveness. `/api/ready` executes only
+  `SELECT 1`, returns a generic 503 on failure, and is the deployment activation
+  probe.
 
 ## Stack Decision
 Recommended MVP: Next.js + Postgres, deployable locally first and hosted on Vercel with managed Postgres later.

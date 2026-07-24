@@ -31,13 +31,24 @@ Public application: `dev.digicolony.net`
 
 - Host from the Debian server: `127.0.0.1`
 - Port: `5432`
-- Database: `appdb`
-- User: `appuser`
+- Portal database: `appdb`
+- Portal runtime user: `appuser`
+- RelayHub database: `relayhub_sms`
+- RelayHub runtime user: `relayhub_sms_runtime`
 - Password file: `/srv/dev-stack/secrets/postgres_password`
 - Compose project: `/srv/dev-stack/compose.yaml`
 - Persistent volume: `dev-stack_postgres_data`
 
-The password file is owned by `mwood`, mode `0600`. The password was not printed or copied into this report.
+The password file is owned by `mwood`, mode `0600`, and is the portal's
+canonical `appuser` credential. RelayHub must not use or alter that role or
+password. RelayHub's distinct credential stays only in
+`~/.config/sheldon/secrets/relayhub-sms.env`. No password was printed or copied
+into this report.
+
+PostgreSQL roles and passwords are cluster-global rather than scoped to a
+database. Every Sheldon application must use a unique runtime login role and
+database-specific grants. See the 2026-07-24 incident report under
+`docs/incidents/`.
 
 ## Firewall policy
 
@@ -95,10 +106,14 @@ The personal Codex plugin `sheldon-deploy` provides the `$deploy-to-sheldon` ski
 - Rootful PostgreSQL uses `172.18.0.0/16`. Rootless application networks must not overlap it; the deployment plugin persists and collision-checks a private subnet per application.
 - Release files live under `/home/mwood/sheldon/apps/<app>/releases/`.
 - Secrets remain server-side in `/home/mwood/.config/sheldon/secrets/<app>.env`.
+- Every PostgreSQL-backed application uses a unique runtime login role. RelayHub
+  uses `relayhub_sms_runtime` and must never use the portal's `appuser`.
 - Container ports bind only to `127.0.0.1`.
 - Per-application Caddy routes live in `/etc/caddy/apps/`.
 - The only passwordless privileged operation is `/usr/bin/systemctl restart caddy`.
-- Deployments health-check new releases and retain the previous release for rollback.
+- Deployments use database-aware readiness checks for activation and retain the
+  previous release for rollback. RelayHub uses `/api/ready`; `/api/health`
+  remains database-independent liveness.
 - Cloudflare Published application routes map each public hostname to `http://localhost:80`.
 - Caddy selects applications by the original HTTP `Host` header. Cloudflare route settings must not override it; a direct request to `localhost:80` may show the default Caddy page and is not an application test.
 

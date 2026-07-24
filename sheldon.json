@@ -6,7 +6,7 @@
   "container_port": 3000,
   "host_port": null,
   "network_subnet": null,
-  "health_path": "/api/health",
+  "health_path": "/api/ready",
   "dockerfile": "Dockerfile",
   "requires_env": [
     "DATABASE_URL",

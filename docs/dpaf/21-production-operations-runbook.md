@@ -1,5 +1,17 @@
 # RelayHub SMS Production Operations Runbook
 
+## Database Runtime Identity
+
+RelayHub's normal production login is `relayhub_sms_runtime` on the
+`relayhub_sms` database. PostgreSQL passwords belong to roles across the whole
+cluster; they are not separate per database. Never configure RelayHub with
+`appuser`, rotate `appuser`, or derive RelayHub's credential from the portal's
+canonical password file.
+
+The application enforces the dedicated username when it initializes the
+connection pool. Sheldon deployment activation calls `/api/ready`, so a shared
+or unusable role prevents release activation.
+
 ## Local Verification
 
 Run these from the project root:
@@ -15,8 +27,21 @@ npm run build
 When using the local Docker Postgres database:
 
 ```bash
-DATABASE_URL=postgres://relayhub:relayhub@localhost:5433/relayhub_sms npm run db:migrate
+DATABASE_URL=postgres://relayhub_sms_runtime:relayhub@localhost:5433/relayhub_sms npm run db:migrate
 ```
+
+## Automated Probes
+
+- `GET /api/health` is liveness. It does not access PostgreSQL.
+- `GET /api/ready` is readiness. It executes `SELECT 1`.
+- Readiness responds with only `{"status":"ready"}` or
+  `{"status":"unavailable"}` and never includes an exception or credential.
+- Sheldon deployment automation uses `/api/ready`; uptime monitoring may call
+  both probes to distinguish a live process from a usable service.
+
+Any automation that provisions a Sheldon application must reserve a unique
+runtime role name and compare it with all other application environment files.
+Duplicate role names are a blocking configuration error.
 
 ## Maintenance Jobs
 

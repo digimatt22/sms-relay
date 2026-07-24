@@ -26,9 +26,26 @@ Option B:
 ## Secrets
 - Admin auth provider secrets in cloud environment variables.
 - Auth.js/NextAuth.js local database-backed admin credentials for MVP.
-- Database connection string in cloud environment variables.
+- Database connection string in server-only environment variables. Production
+  RelayHub uses `relayhub_sms_runtime`, never the portal's `appuser`.
 - Gateway API key stored on appliance with file permissions restricted to the service user.
 - Gateway API key hash stored in Postgres.
+
+PostgreSQL role passwords are global to the server cluster, not scoped per
+database. Each Sheldon application therefore requires a unique runtime login
+role. RelayHub's role has `CONNECT` only to `relayhub_sms`, `USAGE` on the
+required schema, required DML on application tables, and required access to
+application sequences. Matching default privileges are applied for the role
+that owns future migration-created objects.
+
+## Health And Readiness
+
+- `GET /api/health`: database-independent liveness; returns
+  `{"status":"ok"}`.
+- `GET /api/ready`: executes `SELECT 1`; returns HTTP 200 with
+  `{"status":"ready"}` or HTTP 503 with `{"status":"unavailable"}`.
+- Database exceptions and credentials are never included in readiness output.
+- Sheldon uses `/api/ready` as the release activation health path.
 
 ## Rollback
 - Cloud app rollback through hosting provider deployment history.

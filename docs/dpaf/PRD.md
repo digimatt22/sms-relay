@@ -44,6 +44,11 @@ RelayHub SMS is a cloud-coordinated outbound SMS gateway platform. It lets admin
 13. Central logs are retained for 90 days.
 14. MVP hub runs locally and supports up to 3 connected gateway devices.
 15. Logs redact phone numbers while preserving last 4 digits.
+16. Production runtime database access uses the dedicated
+    `relayhub_sms_runtime` role; RelayHub never uses or changes another
+    application's PostgreSQL role.
+17. `/api/health` reports process liveness without database access, while
+    `/api/ready` confirms database usability without exposing errors.
 
 ## Recommended Architecture
 - Hub: Next.js App Router + Postgres, locally runnable for MVP and Vercel/managed Postgres as first hosted target.
@@ -110,6 +115,9 @@ Detailed draft API is in `09-api-specification.md`.
 - SMS delivery semantics vary by carrier and modem; a delivery-confirmed state is only as authoritative as the carrier receipt.
 - Best-effort duplicate prevention does not eliminate every carrier/network duplicate scenario.
 - Static API keys need disciplined rotation/revocation.
+- PostgreSQL role passwords are cluster-global. Reusing one login role across
+  databases couples unrelated applications and can cause cross-application
+  outages when either credential is rotated.
 - Python remains a future fallback only if SIM7070 integration proves materially more reliable outside TypeScript/Node.
 
 ## Open Questions
