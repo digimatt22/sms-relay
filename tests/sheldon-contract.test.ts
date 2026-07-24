@@ -31,6 +31,14 @@ test("release and Docker build inputs are exact, clean, and audited", () => {
   assert.equal(manifest.release.source.revision, "HEAD");
   assert.equal(manifest.release.source.require_clean_worktree, true);
   assert.equal(manifest.release.source.digest, "sha256");
+  assert.equal(
+    manifest.release.source.archive_command,
+    "npm run release:candidate --",
+  );
+  assert.equal(
+    manifest.release.source.audit_command,
+    "npm run release:team-audit --",
+  );
   assert.equal(manifest.services.app.build.context, "release_archive");
   assert.ok(manifest.release.source.exclusions.includes("backups/"));
   assert.ok(manifest.release.source.exclusions.includes("*.dump"));

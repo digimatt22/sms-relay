@@ -19,6 +19,8 @@
     "db:seed-admin": "node scripts/seed-admin.mjs",
     "deploy:check": "bash scripts/production-deploy-check.sh",
     "release:audit": "node scripts/release-policy.mjs audit",
+    "release:team-audit": "python3 scripts/team-marketplace-package-audit.py",
+    "release:candidate": "scripts/release-candidate.sh",
     "release:package": "node scripts/release-policy.mjs package",
     "sheldon:validate": "node scripts/validate-sheldon-manifest.mjs",
     "gateway:dev": "tsx packages/gateway/src/index.ts",

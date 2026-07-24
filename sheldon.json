@@ -7,8 +7,8 @@
       "vcs": "git",
       "revision": "HEAD",
       "require_clean_worktree": true,
-      "archive_command": "npm run release:package --",
-      "audit_command": "npm run release:audit --",
+      "archive_command": "npm run release:candidate --",
+      "audit_command": "npm run release:team-audit --",
       "digest": "sha256",
       "provenance": true,
       "permitted_generated_artifacts": [
@@ -171,7 +171,8 @@
         "DEBUG_BYPASS_RECIPIENT_CONSENT",
         "RELAYHUB_DB_POOL_MAX",
         "RELAYHUB_DB_CONNECTION_TIMEOUT_MS",
-        "RELAYHUB_DB_IDLE_TIMEOUT_MS"
+        "RELAYHUB_DB_IDLE_TIMEOUT_MS",
+        "RELAYHUB_WRITE_FENCE"
       ],
       "postgres": [
         "POSTGRES_PASSWORD",

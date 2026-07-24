@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 // @ts-expect-error The deployment CLI is intentionally plain ESM for Node.
 import { assertReleasePathsSafe, prohibitedReleasePaths } from "../scripts/release-policy.mjs";
 
@@ -24,10 +24,10 @@ test("release policy rejects backups, databases, secrets, keys, and archives", (
   );
 });
 
-test("release policy permits migrations and a placeholder env example", () => {
+test("release policy permits migrations and the non-env configuration template", () => {
   const candidates = [
     "migrations/019_delivery_receipts_conversations_webhooks.sql",
-    ".env.example",
+    "config/environment.example",
     "src/lib/db.ts",
   ];
   assert.deepEqual(prohibitedReleasePaths(candidates), []);
@@ -52,4 +52,28 @@ test("Docker build context denies the same sensitive artifact classes", () => {
   ]) {
     assert.match(dockerignore, new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+});
+
+test("release candidates audit a detached commit with the team marketplace", () => {
+  const candidate = readFileSync("scripts/release-candidate.sh", "utf8");
+  const audit = readFileSync(
+    "scripts/team-marketplace-package-audit.py",
+    "utf8",
+  );
+
+  assert.match(candidate, /git worktree add --detach/);
+  assert.match(candidate, /team-marketplace-package-audit\.py/);
+  assert.match(candidate, /requires a clean primary worktree/);
+  assert.match(candidate, /release-policy\.mjs/);
+  assert.match(audit, /Digicolony\/digicolony-codex-marketplace/);
+  assert.match(audit, /digicolony-codex-marketplace/);
+  assert.match(audit, /installed caches are not accepted/);
+  assert.match(audit, /compatibility_audit_only/);
+  assert.match(audit, /schema2_deployment_supported/);
+  assert.doesNotMatch(audit, /\.codex\/plugins\/cache|\.codex\/plugins/);
+  assert.equal(statSync("scripts/release-candidate.sh").mode & 0o111, 0o111);
+  assert.equal(
+    statSync("scripts/team-marketplace-package-audit.py").mode & 0o111,
+    0o111,
+  );
 });

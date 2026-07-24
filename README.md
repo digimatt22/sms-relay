@@ -4,7 +4,7 @@ DigiColony SNS is a locally runnable SMS gateway hub with an admin dashboard, Po
 
 ## Local Hub
 
-1. Copy `.env.example` to `.env.local` and set `AUTH_SECRET`.
+1. Copy `config/environment.example` to `.env.local` and set `AUTH_SECRET`.
 2. Start Postgres:
    ```sh
    docker compose --env-file .env.local up -d postgres

@@ -128,8 +128,9 @@ source, deletes the target volume, or changes the Work Items database.
 
 ## Remaining approval blockers
 
-- Team marketplace Sheldon Deploy 0.2.0 is not yet published; the current 0.1.0
-  executable cannot deploy schema 2.
+- Team marketplace Sheldon Deploy 0.2.0 is not yet published. Relay Hub uses
+  the current 0.1.1 exact-source audit engine, but its executable cannot deploy
+  schema 2.
 - Matthew has not selected or tested the independent Relay Hub/host fallback
   notification channel.
 - Historical release/cache cleanup is not approved.
@@ -137,3 +138,9 @@ source, deletes the target volume, or changes the Work Items database.
 - Live role/secret changes are not approved.
 - Write fencing, final production backup/migration, container recreation,
   deployment, and rollback are not approved.
+
+The application now exposes a default-off `RELAYHUB_WRITE_FENCE`. When active,
+the proxy rejects mutation methods with HTTP 503, `Retry-After: 60`, and
+`x-relayhub-write-fence: active`, while allowing health/readiness reads. The
+activation, verification, cutover, and rollback sequence is defined in
+`docs/runbooks/relayhub-production-cutover.md`; no live fence change was made.

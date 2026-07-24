@@ -16,9 +16,10 @@ credential, queue, delivery, or message-history semantics.
 - Use the team marketplace package at
   `/Users/mwood/Documents/Digicolony/digicolony-codex-marketplace/plugins/sheldon-deploy`.
 - Do not use or modify the installed plugin cache as source.
-- The marketplace currently publishes Sheldon Deploy `0.1.0` and its executable
-  tooling validates schema 1. The target schema-2 sections and operational
-  requirements come from the platform plan named above.
+- The marketplace currently publishes Sheldon Deploy `0.1.1`. Its exact-source
+  package-audit engine is part of Relay Hub's candidate workflow, but its
+  executable manifest/deployment contract remains schema 1. The target
+  schema-2 sections and operational requirements come from the platform plan.
 - Do not claim tool-level 0.2.0 compatibility until the marketplace publishes
   that version and its clean-install smoke evidence passes.
 - Every candidate archive must be derived from one exact, clean Git commit and
@@ -76,6 +77,8 @@ credential, queue, delivery, or message-history semantics.
   keys, credential exports, archives, and untracked sensitive artifacts from
   both release archives and Docker contexts.
 - Add a clean-worktree, exact-commit release packager and package audit.
+- Run the exact-source safety engine from the team marketplace, never an
+  installed cache, and record its marketplace version and commit.
 - Prove ignored-but-present prohibited fixtures cannot enter an archive.
 - Prepare a target-specific historical release/cache cleanup runbook. Do not
   execute it.
@@ -105,6 +108,8 @@ credential, queue, delivery, or message-history semantics.
   maintenance-window estimate.
 - Document rollback to the original database endpoint without database
   downgrade or data deletion.
+- Provide a default-off write fence that rejects mutations while preserving
+  health/readiness checks, and test it before relying on it in the cutover.
 - Provide an external host watchdog contract for route, process, database,
   disk, memory, build-cache, and backup-age checks.
 - Leave the independent fallback notification channel as an explicit human
@@ -149,3 +154,7 @@ dry-run validation against non-production copies may continue automatically.
   partial-index conflict target. Recommended production window: 20 minutes.
 - 2026-07-24: Added host-level watchdog/systemd contracts. Installation remains
   blocked until Matthew selects and tests an independent fallback channel.
+- 2026-07-24: Integrated the team-marketplace 0.1.1 exact-source safety engine
+  into detached-worktree candidate packaging. Added a testable default-off
+  application write fence and the granular production cutover/rollback
+  runbook. Schema-2 deployment remains blocked on marketplace 0.2.0.

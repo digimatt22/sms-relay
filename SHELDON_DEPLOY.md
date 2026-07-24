@@ -2,14 +2,15 @@
 
 Use the team-marketplace Sheldon Deploy package for deployment, status, and
 rollback operations. The checked-in manifest requires the enhanced
-`sheldon-deploy/0.2.0` schema-2 contract. The marketplace currently published
-0.1.x tooling may be used for read-only status of the existing schema-1 release,
-but it must not package or deploy this schema-2 manifest.
+`sheldon-deploy/0.2.0` schema-2 contract. Team-marketplace 0.1.1 supplies the
+exact-source safety audit used by `release:candidate`, but its CLI remains
+schema-1-only and must not deploy this schema-2 manifest.
 
 - Deployment configuration is in `sheldon.json`.
-- Release candidates come only from `npm run release:package -- OUTPUT_DIR`.
-  The command requires an exact checked-out commit, a completely clean
-  worktree, a sensitive-path audit, SHA-256, and provenance sidecars.
+- Release candidates come only from
+  `npm run release:candidate -- /absolute/OUTPUT_DIR`. The command creates a
+  clean detached Git worktree, runs the team-marketplace safety engine, then
+  packages the exact commit with SHA-256 and provenance sidecars.
 - Never build production from the workspace directory. Build from the audited
   release archive declared by the manifest.
 - Run tests and verify the production Dockerfile before deployment.
@@ -23,6 +24,11 @@ but it must not package or deploy this schema-2 manifest.
 - For Auth.js/NextAuth, set `AUTH_URL` to the canonical public HTTPS hostname and verify generated callback URLs after deployment.
 - Set `PLATFORM_NAME` to the customer-facing brand shown in page titles, navigation, authentication, and security SMS messages.
 - Set `DEBUG_BYPASS_RECIPIENT_CONSENT=true` only on development deployments to bypass verified opt-in records. Active programs, STOP opt-outs, and platform suppressions remain enforced. Leave it `false` everywhere else.
+- `RELAYHUB_WRITE_FENCE=true` makes the application read-only for a database
+  cutover: mutation requests return HTTP 503 while health, readiness, and other
+  reads continue. It defaults off. Changing it and recreating a live container
+  are separate approval-gated operations; follow
+  `docs/runbooks/relayhub-production-cutover.md`.
 - RelayHub owns a dedicated PostgreSQL 17 instance and persistent volume. Keep
   the database name `relayhub_sms`. The container bootstrap administrator is
   `relayhub_sms_cluster_admin`; use the non-superuser `relayhub_sms_owner` only
@@ -50,3 +56,5 @@ but it must not package or deploy this schema-2 manifest.
   SMS must not be the only notification channel for its own outage.
 - Verify the health endpoint and public HTTPS after deployment.
 - Preserve the prior release for rollback.
+- Do not begin the production sequence without the evidence and independent
+  approvals in `docs/runbooks/relayhub-production-cutover.md`.

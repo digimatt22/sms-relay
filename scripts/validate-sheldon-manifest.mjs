@@ -24,6 +24,14 @@ for (const section of [
 requireValue(manifest.release.source.revision === "HEAD", "release revision must resolve from HEAD");
 requireValue(manifest.release.source.require_clean_worktree === true, "clean worktree is required");
 requireValue(manifest.release.source.digest === "sha256", "release digest must be SHA-256");
+requireValue(
+  manifest.release.source.archive_command === "npm run release:candidate --",
+  "release candidates must run the team-marketplace audit workflow",
+);
+requireValue(
+  manifest.release.source.audit_command === "npm run release:team-audit --",
+  "team-marketplace audit command is required",
+);
 requireValue(manifest.services.app.build.context === "release_archive", "app must build from audited archive");
 requireValue(manifest.services.app.user === "nextjs", "app must remain non-root");
 requireValue(manifest.services.app.dependencies.postgres === "ready", "app must wait for PostgreSQL readiness");

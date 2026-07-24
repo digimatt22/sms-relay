@@ -68,7 +68,7 @@ test("user-facing platform names use the shared branding configuration", () => {
   const invitation = readFileSync("src/app/invitations/[token]/page.tsx", "utf8");
   const verification = readFileSync("src/lib/mobile-verification.ts", "utf8");
   const reset = readFileSync("src/lib/password-resets.ts", "utf8");
-  const environment = readFileSync(".env.example", "utf8");
+  const environment = readFileSync("config/environment.example", "utf8");
 
   assert.match(layout, /getPlatformName/);
   assert.match(login, /getPlatformName/);

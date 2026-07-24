@@ -27,7 +27,6 @@ function run(command, args, options = {}) {
 
 export function prohibitedReleasePaths(paths) {
   return paths.filter((candidate) => {
-    if (candidate === ".env.example") return false;
     return PROHIBITED_RELEASE_PATHS.some((pattern) => pattern.test(candidate));
   });
 }
