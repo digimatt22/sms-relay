@@ -13,6 +13,11 @@ Status: Draft.
 - Mock modem/API/database paths support testing.
 
 ## Candidate Next Phase
+- Enforce a server-wide inventory check that rejects duplicate PostgreSQL
+  runtime roles across Sheldon application environment files before
+  provisioning or deployment.
+- Separate production migration/ownership roles from least-privilege runtime
+  roles for every PostgreSQL-backed Sheldon application.
 - Qualify a production-eligible carrier/SIM and real-network delivery reports.
 - Complete webhook operational hardening and publish machine-readable contracts.
 - Implement the SwimSense alert-to-reply-to-app pilot against first-class conversations.

@@ -1,9 +1,26 @@
 import pg from "pg";
 
 const { Pool } = pg;
+export const RELAYHUB_RUNTIME_DATABASE_ROLE = "relayhub_sms_runtime";
 
 declare global {
   var relayhubPool: pg.Pool | undefined;
+}
+
+export function assertDedicatedRuntimeDatabaseRole(connectionString: string) {
+  let username: string;
+
+  try {
+    username = decodeURIComponent(new URL(connectionString).username);
+  } catch {
+    throw new Error("DATABASE_URL is invalid");
+  }
+
+  if (username !== RELAYHUB_RUNTIME_DATABASE_ROLE) {
+    throw new Error(
+      `DATABASE_URL must use the dedicated ${RELAYHUB_RUNTIME_DATABASE_ROLE} role`,
+    );
+  }
 }
 
 function getPool() {
@@ -11,6 +28,7 @@ function getPool() {
   if (!connectionString) {
     throw new Error("DATABASE_URL is required");
   }
+  assertDedicatedRuntimeDatabaseRole(connectionString);
   if (!globalThis.relayhubPool) {
     globalThis.relayhubPool = new Pool({ connectionString });
   }

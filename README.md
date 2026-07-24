@@ -33,6 +33,13 @@ single-use code to that verified mobile number through the client gateway pool.
 
 Dashboard target: `https://sns.digicolony.net` through Cloudflare Tunnel, or `http://localhost:3000` during direct local development.
 
+Production database access uses the dedicated PostgreSQL login role
+`relayhub_sms_runtime`. PostgreSQL role passwords are cluster-global, so
+RelayHub must never share or modify another application's role such as
+`appuser`. `GET /api/health` reports database-independent liveness and
+`GET /api/ready` reports database-backed readiness without exposing database
+errors.
+
 ## Gateway Installer
 
 The installer endpoint is:
