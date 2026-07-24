@@ -1,0 +1,9 @@
+# Copy to a mode-0600 host EnvironmentFile only after selecting a provider.
+RELAYHUB_FALLBACK_WEBHOOK_URL=https://hooks.example.invalid/replace-me
+RELAYHUB_FALLBACK_BEARER_TOKEN=
+RELAYHUB_FALLBACK_HOST_ID=sheldon
+RELAYHUB_FALLBACK_DEDUP_SECONDS=900
+RELAYHUB_FALLBACK_TIMEOUT_SECONDS=10
+RELAYHUB_FALLBACK_STATE_PATH=/home/mwood/.local/state/sheldon/watchdog/fallback.json
+RELAYHUB_FALLBACK_CONFIRMED_INDEPENDENT=false
+RELAYHUB_FALLBACK_DRY_RUN=true

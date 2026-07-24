@@ -59,6 +59,16 @@ requireValue(
   manifest.observability.alert_policy.relayhub_self_alert_via_sms_only === false,
   "Relay Hub cannot be its own only alert path",
 );
+requireValue(
+  manifest.observability.alert_policy.independent_fallback_adapter ===
+    "scripts/relayhub-independent-fallback.py",
+  "independent fallback adapter source is required",
+);
+requireValue(
+  manifest.observability.alert_policy.independent_fallback_live_send_confirmed ===
+    false,
+  "independent fallback live delivery must remain unconfirmed before approval",
+);
 
 const serialized = JSON.stringify(manifest);
 requireValue(!/postgres(?:ql)?:\/\/[^"]+:[^"]+@/i.test(serialized), "manifest contains a credentialed database URL");

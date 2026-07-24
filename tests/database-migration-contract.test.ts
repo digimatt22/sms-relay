@@ -77,11 +77,17 @@ test("host watchdog is external and requires an independent fallback", () => {
     "docs/runbooks/relayhub-host-monitoring.md",
     "utf8",
   );
+  const fallback = readFileSync(
+    "scripts/relayhub-independent-fallback.py",
+    "utf8",
+  );
 
   assert.match(watchdog, /api\/health/);
   assert.match(watchdog, /api\/ready/);
   assert.match(watchdog, /backup:stale/);
   assert.match(service, /OnFailure=relayhub-independent-fallback/);
+  assert.match(fallback, /RELAYHUB_FALLBACK_CONFIRMED_INDEPENDENT/);
+  assert.doesNotMatch(fallback, /api\/alerts\/process|api\/messages/);
   assert.match(guide, /cannot\s+detect or report the loss of Relay Hub itself/);
   assert.match(guide, /must select the channel/);
   assert.match(guide, /do not install or enable/);

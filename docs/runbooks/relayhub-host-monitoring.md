@@ -29,6 +29,14 @@ independently of Relay Hub, its PostgreSQL service, and the Sheldon application
 network. Matthew must select the channel and confirm a received test before
 these units are installed or enabled.
 
+The reviewed adapter source is
+`scripts/relayhub-independent-fallback.py`. It sends a redacted, deduplicated
+JSON event to a user-selected external HTTPS webhook. It rejects Relay Hub's
+own hostname, localhost, literal private addresses, non-HTTPS destinations, and
+live delivery until `RELAYHUB_FALLBACK_CONFIRMED_INDEPENDENT=true`. It never
+logs the webhook URL, bearer token, response body, customer data, phone number,
+or message content.
+
 Until that decision is complete:
 
 - keep `independent_fallback_selected` false in `sheldon.json`;
@@ -41,11 +49,20 @@ Installing scripts, environment files, fallback credentials, or systemd units
 changes live host state and requires explicit approval. Before requesting it:
 
 1. review the adapter implementation and destination;
-2. store adapter credentials in a mode-`0600` host file;
-3. set the protected backup stamp path and thresholds;
-4. run the watchdog against a controlled failure;
-5. confirm the independent notification was received;
-6. verify journal output contains no prohibited data.
+2. copy `config/relayhub-fallback.example` to the host EnvironmentFile, replace
+   the placeholder values, and keep it mode `0600`;
+3. install the adapter as
+   `/usr/local/libexec/relayhub-independent-fallback`;
+4. leave dry-run enabled and confirm the emitted payload is redacted;
+5. set the protected backup stamp path and thresholds;
+6. set `RELAYHUB_FALLBACK_CONFIRMED_INDEPENDENT=true`, disable dry-run, and
+   send a controlled test;
+7. confirm the independent notification was received;
+8. run the watchdog against a controlled failure;
+9. verify deduplication and confirm journal output contains no prohibited data.
+
+Steps 2 through 8 modify live host state or contact an external provider and
+remain explicitly approval gated.
 
 The watchdog does not prune build cache, delete backups, restart containers, or
 perform rollback. Those remain separate approval-gated operations.

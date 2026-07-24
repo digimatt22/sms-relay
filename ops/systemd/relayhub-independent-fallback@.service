@@ -8,4 +8,5 @@ ExecStart=/usr/local/libexec/relayhub-independent-fallback %i
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=true
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/sheldon/watchdog

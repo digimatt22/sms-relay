@@ -16,7 +16,7 @@ Status: local implementation and dry-run complete; live gates not authorized
 | 10 | Operational declarations | Limits, timeouts, health, backup, restore-check, resources, and persistent volume | Complete |
 | 11 | Separate migrations | One-shot migration process and separately gated owner credential | Complete |
 | 12 | Dry-run migration | Protected backup, isolated restore, comparisons, rollback, and 20-minute estimate | Complete |
-| 13 | Host monitoring | External watchdog/systemd contract | Prepared; independent fallback selection/test pending |
+| 13 | Host monitoring | External watchdog/systemd contract and redacted, deduplicated external-webhook adapter | Adapter prepared; provider selection/received live test pending |
 | 14 | SMS success/failures | Non-sending authorized path plus consent, STOP, credential, and database failures | Complete |
 | 15 | Commit and push phases | Phase commits and remote branch evidence | Complete after final phase push |
 | 16 | Automatic local work | Implementation, build, tests, restore drill, and candidate audit | Complete after final candidate |

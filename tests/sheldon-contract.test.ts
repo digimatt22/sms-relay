@@ -110,6 +110,11 @@ test("host watchdog has a required independent Relay Hub fallback", () => {
   assert.equal(policy.relayhub_self_alert_via_sms_only, false);
   assert.equal(policy.independent_fallback_required, true);
   assert.equal(policy.independent_fallback_selected, false);
+  assert.equal(
+    policy.independent_fallback_adapter,
+    "scripts/relayhub-independent-fallback.py",
+  );
+  assert.equal(policy.independent_fallback_live_send_confirmed, false);
 });
 
 test("database scripts separate owner migration and runtime grants", () => {

@@ -284,6 +284,8 @@
       "relayhub_self_alert_via_sms_only": false,
       "independent_fallback_required": true,
       "independent_fallback_selected": false,
+      "independent_fallback_adapter": "scripts/relayhub-independent-fallback.py",
+      "independent_fallback_live_send_confirmed": false,
       "deduplicate": true,
       "include_secrets_or_message_content": false
     },

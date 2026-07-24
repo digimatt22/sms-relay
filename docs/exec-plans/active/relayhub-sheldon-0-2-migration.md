@@ -158,3 +158,6 @@ dry-run validation against non-production copies may continue automatically.
   into detached-worktree candidate packaging. Added a testable default-off
   application write fence and the granular production cutover/rollback
   runbook. Schema-2 deployment remains blocked on marketplace 0.2.0.
+- 2026-07-24: Added a provider-neutral, redacted, deduplicated host fallback
+  webhook adapter with dry-run and explicit live-send confirmation gates.
+  Provider selection, installation, and a received live test remain unapproved.
