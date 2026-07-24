@@ -30,6 +30,12 @@ test("event contract covers outbound lifecycle, replies, conversations, and auth
   }
 });
 
+test("message event envelopes use the message-level delivery timestamp", () => {
+  const eventContract = readFileSync("src/lib/event-contract.ts", "utf8");
+  assert.match(eventContract, /delivery_status_updated_at AS delivery_reported_at/);
+  assert.doesNotMatch(eventContract, /finalized_at, delivery_reported_at\s+FROM messages/);
+});
+
 test("opt-out and reconsent transitions publish canonical key-level events", () => {
   const authorizations = readFileSync("src/lib/recipient-authorizations.ts", "utf8");
   assert.match(authorizations, /eventType: "recipient\.opt_out\.recorded"/);

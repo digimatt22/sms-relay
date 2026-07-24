@@ -67,9 +67,15 @@ test("account topology and API key UI use active account context and clear label
   assert.match(gatewayList, /\{account\.organizationName\}/);
   assert.doesNotMatch(gatewayList, /M\.A\.T\.T\./);
   assert.match(layout, /label: "API Keys"/);
+  assert.match(layout, /<WorkspaceSwitcher/);
+  assert.doesNotMatch(layout, /Switch workspace/);
   assert.match(clients, /<h1>API Keys<\/h1>/);
+  assert.match(clients, /account\.isPlatformAdmin \? undefined : organizationId/);
+  assert.match(clients, /client\.organization_name/);
   assert.match(clients, /<label htmlFor="name">App Name<\/label>/);
   assert.match(clients, /<label htmlFor="keyLabel">Key Name<\/label>/);
+  assert.match(clients, /<label htmlFor="apiOrganization">Client<\/label>/);
+  assert.match(clients, /<select id="apiOrganization" name="organizationId"/);
   assert.match(clients, /This is not the secret key/);
 });
 

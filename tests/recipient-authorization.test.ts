@@ -100,4 +100,11 @@ test("messaging program ownership is enforced by client at the database boundary
 
   const programs = readFileSync("src/lib/messaging-programs.ts", "utf8");
   assert.match(programs, /approveMessagingProgram[\s\S]*organization_id = \$3/);
+
+  const consentPage = readFileSync("src/app/consent/page.tsx", "utf8");
+  assert.match(consentPage, /<label htmlFor="programOrganization">Client<\/label>/);
+  assert.match(consentPage, /<select id="programOrganization" name="organizationId"/);
+  assert.match(consentPage, /Programs across all clients/);
+  assert.match(consentPage, /program\.organization_name/);
+  assert.match(consentPage, /authorization\.organization_name/);
 });

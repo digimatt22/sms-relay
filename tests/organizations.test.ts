@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-test("dashboard pages read through current organization context", () => {
+test("dashboard pages use role-aware organization context", () => {
   const layout = readFileSync("src/app/layout.tsx", "utf8");
   const messages = readFileSync("src/app/messages/page.tsx", "utf8");
   const gateways = readFileSync("src/app/gateways/page.tsx", "utf8");
@@ -12,7 +12,7 @@ test("dashboard pages read through current organization context", () => {
   assert.match(layout, /listOrganizationsForUser/);
   assert.match(messages, /getCurrentOrganizationId/);
   assert.match(gateways, /g\.organization_id = \$1/);
-  assert.match(clients, /listApiClients\(\{ organizationId \}\)/);
+  assert.match(clients, /listApiClients\(\{ organizationId: account\.isPlatformAdmin \? undefined : organizationId \}\)/);
 });
 
 test("new organizations get their own default gateway pool", () => {

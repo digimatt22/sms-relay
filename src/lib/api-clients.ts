@@ -49,7 +49,8 @@ export async function listApiClients(options: { organizationId?: string } = {}) 
     where = `WHERE c.organization_id = $${values.length}`;
   }
   const result = await query(
-    `SELECT c.id, c.name, c.api_key_prefix, c.status, c.last_used_at, c.created_at,
+    `SELECT c.id, c.name, c.organization_id, o.name AS organization_name,
+            c.api_key_prefix, c.status, c.last_used_at, c.created_at,
             c.disabled_at,
             c.hourly_message_limit,
             c.daily_message_limit,
@@ -60,10 +61,11 @@ export async function listApiClients(options: { organizationId?: string } = {}) 
             COUNT(DISTINCT m.id) FILTER (WHERE m.status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown'))::int AS submitted_messages,
             COUNT(DISTINCT m.id) FILTER (WHERE m.status IN ('retry_scheduled', 'failed', 'dead_lettered'))::int AS problem_messages
        FROM api_clients c
+       JOIN organizations o ON o.id = c.organization_id
        LEFT JOIN api_client_keys k ON k.api_client_id = c.id
        LEFT JOIN messages m ON m.api_client_id = c.id
       ${where}
-      GROUP BY c.id
+      GROUP BY c.id, o.name
       ORDER BY c.created_at DESC`,
     values
   );

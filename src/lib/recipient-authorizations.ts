@@ -673,9 +673,11 @@ export async function listRecipientAuthorizations(options: { organizationId?: st
     `SELECT a.id, a.organization_id, a.messaging_program_id, a.phone_number_redacted,
             a.client_recipient_reference, a.status, a.consent_source, a.requested_at,
             a.verified_at, a.revoked_at, a.created_at, p.name AS program_name,
+            o.name AS organization_name,
             p.sender_display_name
        FROM recipient_authorizations a
        JOIN messaging_programs p ON p.id = a.messaging_program_id
+       JOIN organizations o ON o.id = a.organization_id
       WHERE ($1::uuid IS NULL OR a.organization_id = $1::uuid)
       ORDER BY a.created_at DESC
       LIMIT $2`,

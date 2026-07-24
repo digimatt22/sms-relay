@@ -6,7 +6,7 @@ import { createApiClientKeyAction, updateApiClientLimitsAction } from "@/app/act
 import { LocalDateTime } from "@/components/local-date-time";
 import { query } from "@/lib/db";
 import { humanize } from "@/lib/format";
-import { getCurrentOrganizationId } from "@/lib/organizations";
+import { getAccountContext } from "@/lib/account-context";
 import { requireAdminPage } from "@/lib/page-auth";
 import { hasRole } from "@/lib/rbac";
 import { getPlatformName } from "@/lib/branding";
@@ -21,21 +21,24 @@ export default async function ClientWorkspacePage({
   const session = await requireAdminPage();
   const { id } = await params;
   const sp = await searchParams;
-  const organizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
+  const account = await getAccountContext(session);
+  const organizationId = account.isPlatformAdmin ? null : account.organizationId;
   const canAdminClients = hasRole(session, "org_admin");
   const platformName = getPlatformName();
 
   const [clientResult, messages, inbound, callbacks, pools, keys] = await Promise.all([
     query(
-      `SELECT c.*,
+      `SELECT c.*, o.name AS organization_name,
               COUNT(m.id)::int AS total_messages,
               COUNT(m.id) FILTER (WHERE m.created_at >= now() - interval '24 hours')::int AS messages_24h,
               COUNT(m.id) FILTER (WHERE m.status IN ('carrier_submitted', 'delivery_confirmed', 'delivery_failed', 'delivery_unknown'))::int AS submitted_messages,
               COUNT(m.id) FILTER (WHERE m.status IN ('retry_scheduled', 'failed', 'dead_lettered'))::int AS problem_messages
          FROM api_clients c
+         JOIN organizations o ON o.id = c.organization_id
          LEFT JOIN messages m ON m.api_client_id = c.id
-        WHERE c.id = $1 AND c.organization_id = $2
-        GROUP BY c.id`,
+        WHERE c.id = $1
+          AND ($2::uuid IS NULL OR c.organization_id = $2)
+        GROUP BY c.id, o.name`,
       [id, organizationId]
     ),
     query(
@@ -43,7 +46,7 @@ export default async function ClientWorkspacePage({
          FROM messages m
          LEFT JOIN gateways g ON g.id = m.claim_gateway_id
         WHERE m.api_client_id = $1
-          AND m.organization_id = $2
+          AND ($2::uuid IS NULL OR m.organization_id = $2)
         ORDER BY m.created_at DESC
         LIMIT 20`,
       [id, organizationId]
@@ -53,7 +56,7 @@ export default async function ClientWorkspacePage({
          FROM inbound_messages i
          JOIN messages m ON m.id = i.matched_message_id
         WHERE m.api_client_id = $1
-          AND i.organization_id = $2
+          AND ($2::uuid IS NULL OR i.organization_id = $2)
         ORDER BY i.received_at DESC
         LIMIT 10`,
       [id, organizationId]
@@ -61,7 +64,7 @@ export default async function ClientWorkspacePage({
     query(
       `SELECT *
          FROM callback_deliveries
-        WHERE organization_id = $2
+        WHERE ($2::uuid IS NULL OR organization_id = $2)
           AND (
             message_id IN (SELECT id FROM messages WHERE api_client_id = $1)
             OR inbound_message_id IN (
@@ -87,7 +90,7 @@ export default async function ClientWorkspacePage({
          LEFT JOIN gateway_pool_memberships gm ON gm.gateway_pool_id = p.id
          LEFT JOIN gateways g ON g.id = gm.gateway_id
         WHERE a.api_client_id = $1
-          AND p.organization_id = $2
+          AND ($2::uuid IS NULL OR p.organization_id = $2)
         GROUP BY p.id, a.is_default
         ORDER BY a.is_default DESC, p.name ASC`,
       [id, organizationId]
@@ -112,7 +115,7 @@ export default async function ClientWorkspacePage({
       <header className="page-header">
         <div>
           <h1>{client.name}</h1>
-          <p>API app under this client account. Keys, routing, callbacks, and usage live here.</p>
+          <p>API app for {client.organization_name}. Keys, routing, callbacks, and usage live here.</p>
         </div>
         <div className="actions-row">
           <span className={`status ${client.status}`}>{humanize(client.status)}</span>
@@ -291,6 +294,7 @@ export default async function ClientWorkspacePage({
             {canAdminClients ? (
               <form className="form" action={createApiClientKeyAction} style={{ marginBottom: 16 }}>
                 <input type="hidden" name="clientId" value={client.id} />
+                <input type="hidden" name="organizationId" value={client.organization_id} />
                 <div className="field">
                   <label htmlFor="label">New key name</label>
                   <input id="label" name="label" required placeholder="Production CRM, Staging, Support console" />
@@ -305,6 +309,7 @@ export default async function ClientWorkspacePage({
             {canAdminClients ? (
               <form className="form" action={updateApiClientLimitsAction}>
                 <input type="hidden" name="clientId" value={client.id} />
+                <input type="hidden" name="organizationId" value={client.organization_id} />
                 <div className="field">
                   <label htmlFor="hourlyMessageLimit">Hourly message limit</label>
                   <input id="hourlyMessageLimit" name="hourlyMessageLimit" type="number" min="1" defaultValue={client.hourly_message_limit || ""} />

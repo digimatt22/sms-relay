@@ -22,6 +22,7 @@ import { getCurrentOrganizationId, listOrganizationsForUser } from "@/lib/organi
 import { normalizeRole } from "@/lib/rbac";
 import { getPlatformName } from "@/lib/branding";
 import { countUnreadInboundMessages } from "@/lib/inbound";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import "./globals.css";
 
 export function generateMetadata(): Metadata {
@@ -91,19 +92,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </Link>
                 <p className="brand-subtitle">SMS relay operations</p>
                 {organizations.length > 1 ? (
-                  <form action={switchOrganizationAction} className="workspace-switcher">
-                    <select
-                      aria-label="Organization"
-                      name="organizationId"
-                      defaultValue={currentOrganizationId || ""}
-                      style={{ width: "100%" }}
-                    >
-                      {organizations.map((organization: any) => (
-                        <option key={organization.id} value={organization.id}>{organization.name}</option>
-                      ))}
-                    </select>
-                    <button className="ghost-button subtle-action" type="submit">Switch workspace</button>
-                  </form>
+                  <WorkspaceSwitcher
+                    action={switchOrganizationAction}
+                    currentOrganizationId={currentOrganizationId || ""}
+                    organizations={organizations.map((organization: any) => ({
+                      id: organization.id,
+                      name: organization.name
+                    }))}
+                    returnTo={pathname || "/messages"}
+                  />
                 ) : null}
                 <nav>
                   {navGroups.map((group) => (

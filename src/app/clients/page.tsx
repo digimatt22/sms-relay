@@ -3,7 +3,8 @@ import Link from "next/link";
 import { MoreVertical, Plus, Search, TrendingUp } from "lucide-react";
 import { createApiClientAction } from "@/app/actions";
 import { getClientUsageSummary, listApiClients } from "@/lib/api-clients";
-import { getCurrentOrganizationId } from "@/lib/organizations";
+import { getAccountContext } from "@/lib/account-context";
+import { listOrganizationsForUser } from "@/lib/organizations";
 import { hasRole } from "@/lib/rbac";
 
 export default async function ClientsPage({
@@ -13,9 +14,13 @@ export default async function ClientsPage({
 }) {
   const session = await requireAdminPage();
   const params = await searchParams;
-  const organizationId = await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role });
-  const clients = await listApiClients({ organizationId });
-  const usage = await getClientUsageSummary({ organizationId });
+  const account = await getAccountContext(session);
+  const organizationId = account.organizationId;
+  const organizations = account.isPlatformAdmin
+    ? await listOrganizationsForUser(session.user.id, session.user.role)
+    : [];
+  const clients = await listApiClients({ organizationId: account.isPlatformAdmin ? undefined : organizationId });
+  const usage = await getClientUsageSummary({ organizationId: account.isPlatformAdmin ? undefined : organizationId });
   const canAdminClients = hasRole(session, "org_admin");
   const totalMessages24h = clients.reduce((sum: number, client: any) => sum + Number(client.messages_24h || 0), 0);
   const submittedMessages = clients.reduce((sum: number, client: any) => sum + Number(client.submitted_messages || 0), 0);
@@ -32,7 +37,9 @@ export default async function ClientsPage({
           <h1>API Keys</h1>
           <p>
             {canAdminClients
-              ? "Create and manage API keys for applications that submit SMS through this client account."
+              ? account.isPlatformAdmin
+                ? "Create and manage API keys for applications across all client accounts."
+                : "Create and manage API keys for applications that submit SMS through this client account."
               : "View the applications and API keys available to this client account. Contact your client administrator to create an app or API key."}
           </p>
         </div>
@@ -81,7 +88,7 @@ export default async function ClientsPage({
             <div className="client-row-grid data-row" key={client.id}>
               <div>
                 <Link href={`/clients/${client.id}`}><strong>{client.name}</strong></Link>
-                <div className="object-meta">{client.api_key_prefix}...</div>
+                <div className="object-meta">{account.isPlatformAdmin ? `${client.organization_name} · ` : ""}{client.api_key_prefix}...</div>
               </div>
               <div>
                 <strong>{client.messages_24h}</strong>
@@ -142,6 +149,22 @@ export default async function ClientsPage({
         <section className="panel" id="new-client" style={{ marginTop: 16 }}>
           <h2>Create API key</h2>
           <form className="form" action={createApiClientAction}>
+            <div className="field">
+              <label htmlFor="apiOrganization">Client</label>
+              <small className="field-help">This API app and every key created for it belong only to the selected client.</small>
+              {account.isPlatformAdmin ? (
+                <select id="apiOrganization" name="organizationId" defaultValue={account.organizationId} required>
+                  {organizations.map((organization: any) => (
+                    <option key={organization.id} value={organization.id}>{organization.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <>
+                  <input id="apiOrganization" value={account.organizationName} readOnly />
+                  <input type="hidden" name="organizationId" value={account.organizationId} />
+                </>
+              )}
+            </div>
             <div className="field">
               <label htmlFor="name">App Name</label>
               <small className="field-help">The application or service that will use this API key.</small>

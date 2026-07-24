@@ -149,7 +149,8 @@ async function resolveEventSource(client: pg.PoolClient, input: PublishEventInpu
     const result = await client.query(
       `SELECT api_client_id, api_client_key_id, conversation_thread_id,
               to_number, to_number_redacted, body, status, priority, metadata,
-              submitted_at, finalized_at, delivery_reported_at
+              submitted_at, finalized_at,
+              delivery_status_updated_at AS delivery_reported_at
          FROM messages
         WHERE id = $1`,
       [input.messageId]

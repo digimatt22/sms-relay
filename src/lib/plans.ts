@@ -1,5 +1,40 @@
 import { query } from "@/lib/db";
 
+const starterPlanLimits = {
+  monthlyMessageLimit: 1000,
+  includedUsers: 1,
+  includedApiKeys: 2,
+  includedGateways: 0,
+  callbackAllowed: false
+};
+
+export async function getOrganizationPlanLimits(organizationId: string) {
+  const result = await query(
+    `SELECT p.monthly_message_limit,
+            p.included_users,
+            p.included_api_keys,
+            p.included_gateways,
+            p.callback_allowed
+       FROM organization_plans op
+       JOIN plans p ON p.id = op.plan_id
+      WHERE op.organization_id = $1
+        AND op.status = 'active'
+      ORDER BY op.created_at DESC
+      LIMIT 1`,
+    [organizationId]
+  );
+  const row = result.rows[0];
+  return row
+    ? {
+        monthlyMessageLimit: Number(row.monthly_message_limit),
+        includedUsers: Number(row.included_users),
+        includedApiKeys: Number(row.included_api_keys),
+        includedGateways: Number(row.included_gateways),
+        callbackAllowed: Boolean(row.callback_allowed)
+      }
+    : starterPlanLimits;
+}
+
 export async function getOrganizationPlanUsage(organizationId: string) {
   const result = await query(
     `SELECT COUNT(DISTINCT m.id) FILTER (

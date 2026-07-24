@@ -198,9 +198,10 @@ export async function listMessagingPrograms(options: { organizationId?: string; 
   if (options.activeOnly) clauses.push("p.status = 'active'");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const result = await query(
-    `SELECT p.*, d.disclosure_text, d.version AS disclosure_version,
+    `SELECT p.*, o.name AS organization_name, d.disclosure_text, d.version AS disclosure_version,
             t.template_text, t.version AS template_version
        FROM messaging_programs p
+       JOIN organizations o ON o.id = p.organization_id
        LEFT JOIN consent_disclosure_versions d ON d.id = p.current_disclosure_version_id
        LEFT JOIN verification_template_versions t ON t.id = p.current_template_version_id
       ${where}

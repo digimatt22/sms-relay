@@ -34,13 +34,14 @@ import {
   createUserInvitation,
   ensureDefaultGatewayPool,
   getCurrentOrganizationId,
+  listOrganizationsForUser,
   removeOrganizationMembership,
   setCurrentOrganizationId,
   upsertOrganizationMembership
 } from "@/lib/organizations";
 import { hasRole, type Role } from "@/lib/rbac";
 import { getAccountContext, accountHasRole } from "@/lib/account-context";
-import { assertPlanCapacity } from "@/lib/plans";
+import { assertPlanCapacity, getOrganizationPlanLimits } from "@/lib/plans";
 import { mustChangePassword } from "@/lib/passwords";
 import { getGatewayAccessLevel, hasGatewayAccessLevel } from "@/lib/gateway-access";
 import { normalizePhoneNumber } from "@/lib/phone";
@@ -87,6 +88,19 @@ async function requireAccountActionRole(minimumRole: Role, forbiddenPath = "/mes
     redirect("/messages");
   }
   return { session, account };
+}
+
+async function resolveFormOrganization(
+  session: { user: { id: string; role?: string | null } },
+  formData: FormData,
+  errorPath: string
+) {
+  const organizationId = String(formData.get("organizationId") || "");
+  const organizations = await listOrganizationsForUser(session.user.id, session.user.role);
+  if (!organizationId || !organizations.some((organization: any) => organization.id === organizationId)) {
+    redirectWithMessage(errorPath, "Select a client you are allowed to manage.");
+  }
+  return organizationId;
 }
 
 async function requireGatewayActionAccess(gatewayId: string, minimumRole: Role) {
@@ -200,7 +214,11 @@ export async function switchOrganizationAction(formData: FormData) {
   if (organizationId) {
     await setCurrentOrganizationId(organizationId);
   }
-  redirect("/messages");
+  const requestedReturnTo = String(formData.get("returnTo") || "");
+  const returnTo = requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//")
+    ? requestedReturnTo
+    : "/messages";
+  redirect(returnTo);
 }
 
 export async function createOrganizationAction(formData: FormData) {
@@ -490,6 +508,7 @@ export async function createMessageAction(formData: FormData) {
 
 export async function createMessagingProgramAction(formData: FormData) {
   const { session, account } = await requireAccountActionRole("org_admin", "/consent");
+  const organizationId = await resolveFormOrganization(session, formData, "/consent");
   const stringOrNull = (name: string) => String(formData.get(name) || "").trim() || null;
   const parsed = messagingProgramCreateSchema.safeParse({
     name: formData.get("name"),
@@ -507,7 +526,7 @@ export async function createMessagingProgramAction(formData: FormData) {
   }
   try {
     await createMessagingProgram({
-      organizationId: account.organizationId,
+      organizationId,
       ...parsed.data,
       createdByUserId: session.user.id,
       activate: account.isPlatformAdmin
@@ -515,6 +534,7 @@ export async function createMessagingProgramAction(formData: FormData) {
   } catch (error) {
     redirectWithMessage("/consent", error instanceof Error ? error.message : "Messaging program could not be created");
   }
+  if (organizationId !== account.organizationId) await setCurrentOrganizationId(organizationId);
   revalidatePath("/consent");
   redirect("/consent");
 }
@@ -523,10 +543,11 @@ export async function approveMessagingProgramAction(formData: FormData) {
   const { session, account } = await requireAccountActionRole("platform_admin");
   if (!account.isPlatformAdmin) redirect("/consent");
   const programId = String(formData.get("programId") || "");
+  const organizationId = await resolveFormOrganization(session, formData, "/consent");
   if (programId) {
     await approveMessagingProgram({
       programId,
-      organizationId: account.organizationId,
+      organizationId,
       approvedByUserId: session.user.id
     });
   }
@@ -535,12 +556,13 @@ export async function approveMessagingProgramAction(formData: FormData) {
 }
 
 export async function disableMessagingProgramAction(formData: FormData) {
-  const { account } = await requireAccountActionRole("org_admin");
+  const { session } = await requireAccountActionRole("org_admin");
   const programId = String(formData.get("programId") || "");
+  const organizationId = await resolveFormOrganization(session, formData, "/consent");
   if (programId) {
     await updateMessagingProgram({
       programId,
-      organizationId: account.organizationId,
+      organizationId,
       status: "disabled"
     });
   }
@@ -593,12 +615,13 @@ export async function confirmHostedAuthorizationAction(formData: FormData) {
 }
 
 export async function revokeRecipientAuthorizationAction(formData: FormData) {
-  const { session, account } = await requireAccountActionRole("org_admin");
+  const { session } = await requireAccountActionRole("org_admin");
   const authorizationId = String(formData.get("authorizationId") || "");
+  const organizationId = await resolveFormOrganization(session, formData, "/consent");
   if (authorizationId) {
     await revokeRecipientAuthorization({
       authorizationId,
-      organizationId: account.organizationId,
+      organizationId,
       reasonCode: "admin_revocation",
       actorType: "admin_user",
       actorId: session.user.id
@@ -747,13 +770,14 @@ export async function cancelMessageAction(formData: FormData) {
 
 export async function createApiClientAction(formData: FormData) {
   const { session, account } = await requireAccountActionRole("org_admin");
+  const organizationId = await resolveFormOrganization(session, formData, "/clients");
 
   const parsed = apiClientCreateSchema.parse({
     name: formData.get("name"),
     keyLabel: formData.get("keyLabel") || "Production"
   });
   try {
-    await assertPlanCapacity(account.organizationId, account.plan, "api_key");
+    await assertPlanCapacity(organizationId, await getOrganizationPlanLimits(organizationId), "api_key");
   } catch (error) {
     redirectWithMessage("/clients", error instanceof Error ? error.message : "API key limit exceeded");
   }
@@ -762,20 +786,22 @@ export async function createApiClientAction(formData: FormData) {
     name: parsed.name,
     keyLabel: parsed.keyLabel,
     userId: session.user.id,
-    organizationId: account.organizationId
+    organizationId
   });
+  if (organizationId !== account.organizationId) await setCurrentOrganizationId(organizationId);
   redirect(`/clients?apiKey=${encodeURIComponent(apiKey)}&clientId=${encodeURIComponent(client.id)}`);
 }
 
 export async function createApiClientKeyAction(formData: FormData) {
-  const { session, account } = await requireAccountActionRole("org_admin");
+  const { session } = await requireAccountActionRole("org_admin");
 
   const clientId = String(formData.get("clientId") || "");
   const label = String(formData.get("label") || "").trim();
   if (!clientId || !label) redirect("/clients");
+  const organizationId = await resolveFormOrganization(session, formData, `/clients/${clientId}`);
 
   try {
-    await assertPlanCapacity(account.organizationId, account.plan, "api_key");
+    await assertPlanCapacity(organizationId, await getOrganizationPlanLimits(organizationId), "api_key");
   } catch (error) {
     redirectWithMessage(`/clients/${clientId}`, error instanceof Error ? error.message : "API key limit exceeded");
   }
@@ -784,7 +810,7 @@ export async function createApiClientKeyAction(formData: FormData) {
     clientId,
     label,
     userId: session.user.id,
-    organizationId: account.organizationId
+    organizationId
   });
   if (!result) redirect(`/clients/${clientId}?error=Client%20not%20found%20or%20disabled`);
 
@@ -841,6 +867,7 @@ export async function updateApiClientLimitsAction(formData: FormData) {
 
   const clientId = String(formData.get("clientId") || "");
   if (!clientId) redirect("/clients");
+  const organizationId = await resolveFormOrganization(session, formData, `/clients/${clientId}`);
 
   const hourlyRaw = String(formData.get("hourlyMessageLimit") || "").trim();
   const dailyRaw = String(formData.get("dailyMessageLimit") || "").trim();
@@ -848,7 +875,7 @@ export async function updateApiClientLimitsAction(formData: FormData) {
     clientId,
     hourlyMessageLimit: hourlyRaw ? Number(hourlyRaw) : null,
     dailyMessageLimit: dailyRaw ? Number(dailyRaw) : null,
-    organizationId: await getCurrentOrganizationId({ userId: session.user.id, role: session.user.role })
+    organizationId
   });
   revalidatePath("/clients");
   redirect("/clients");
