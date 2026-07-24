@@ -80,6 +80,11 @@ now creates it explicitly before the Next.js build and consumes the named
 schema-2 BuildKit secret directly. This prevents workspace-only files from
 being needed for a successful production image build.
 
+The clean build then surfaced production dependency advisories. Relay Hub was
+updated to Next.js 16.2.11, NextAuth beta.32, and Auth PostgreSQL adapter
+1.11.3, with fixed PostCSS, Sharp, and brace-expansion resolutions. A fresh
+install, full production check, and `npm audit` passed with zero advisories.
+
 ## Timing and maintenance window
 
 Measured on the current small dataset:
