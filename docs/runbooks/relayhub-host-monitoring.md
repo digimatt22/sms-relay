@@ -11,9 +11,12 @@ The host watchdog runs as a Sheldon user systemd timer outside all application
 containers. It checks:
 
 - public HTTPS liveness and database-backed readiness;
-- the expected Relay Hub container state;
+- the expected Relay Hub application and PostgreSQL container states;
+- the declared PostgreSQL persistent volume;
 - host disk and memory thresholds;
 - protected backup age;
+- public certificate validity beyond the configured threshold;
+- current-release existence and optional expected-release drift;
 - a non-sensitive digest of the current Docker build-cache inventory.
 
 Machine-readable results go to the host journal. They contain identifiers and
@@ -54,7 +57,10 @@ changes live host state and requires explicit approval. Before requesting it:
 3. install the adapter as
    `/usr/local/libexec/relayhub-independent-fallback`;
 4. leave dry-run enabled and confirm the emitted payload is redacted;
-5. set the protected backup stamp path and thresholds;
+5. copy `config/relayhub-host-watchdog.example` to the host EnvironmentFile and
+   confirm the rootless Docker context, application/PostgreSQL container names,
+   PostgreSQL volume, protected backup stamp, certificate threshold, current
+   release link, and resource thresholds;
 6. set `RELAYHUB_FALLBACK_CONFIRMED_INDEPENDENT=true`, disable dry-run, and
    send a controlled test;
 7. confirm the independent notification was received;

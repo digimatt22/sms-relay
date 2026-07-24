@@ -106,6 +106,13 @@ test("migrations, cleanup, and database rollback remain separately gated", () =>
 
 test("host watchdog has a required independent Relay Hub fallback", () => {
   const policy = manifest.observability.alert_policy;
+  assert.ok(
+    manifest.observability.dependency_checks.includes("certificate_expiry"),
+  );
+  assert.ok(manifest.observability.dependency_checks.includes("release_drift"));
+  assert.ok(
+    manifest.observability.dependency_checks.includes("postgres_volume"),
+  );
   assert.equal(policy.watchdog_scope, "host");
   assert.equal(policy.relayhub_self_alert_via_sms_only, false);
   assert.equal(policy.independent_fallback_required, true);

@@ -85,6 +85,14 @@ test("host watchdog is external and requires an independent fallback", () => {
   assert.match(watchdog, /api\/health/);
   assert.match(watchdog, /api\/ready/);
   assert.match(watchdog, /backup:stale/);
+  assert.match(watchdog, /postgres:not_ready/);
+  assert.match(watchdog, /postgres_volume:missing/);
+  assert.match(watchdog, /certificate:expiring_or_unavailable/);
+  assert.match(watchdog, /release:drift/);
+  assert.match(watchdog, /build_cache:unavailable/);
+  assert.match(watchdog, /public_liveness: liveness === "true"/);
+  assert.match(watchdog, /public_readiness: readiness === "true"/);
+  assert.match(watchdog, /docker_command=\(docker\)/);
   assert.match(service, /OnFailure=relayhub-independent-fallback/);
   assert.match(fallback, /RELAYHUB_FALLBACK_CONFIRMED_INDEPENDENT/);
   assert.doesNotMatch(fallback, /api\/alerts\/process|api\/messages/);

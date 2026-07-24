@@ -161,3 +161,7 @@ dry-run validation against non-production copies may continue automatically.
 - 2026-07-24: Added a provider-neutral, redacted, deduplicated host fallback
   webhook adapter with dry-run and explicit live-send confirmation gates.
   Provider selection, installation, and a received live test remain unapproved.
+- 2026-07-24: Strengthened the external watchdog contract with truthful
+  liveness/readiness results, direct application/PostgreSQL container and
+  persistent-volume checks, certificate horizon, release drift, and explicit
+  build-cache inspection failure. Installation remains unapproved.
